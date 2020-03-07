@@ -14,7 +14,8 @@ class NESHeader {
 }
 
 function byteToSigned(val) {
-  if(val&0x80) val -= 256;
+
+  if(val&0x80) val = -((~val&0xff)-1);
   return val;
 }
 
@@ -26,6 +27,8 @@ class NESSystem {
 
   constructor() {
 
+    this.cycles = 0;
+    this.ops = 0;
     this.PC = 0x8000;
     this.S = 0xff;
     this.P = Buffer.alloc(1);
@@ -35,6 +38,8 @@ class NESSystem {
     this.header = new NESHeader();
     this.memory_cpu = Buffer.alloc(0xffff);
     this.memory_ppu = Buffer.alloc(0x3fff);
+
+    this.memory_cpu[0x2002] = 0x80;
   }
 
   push_stack(byte) {
@@ -50,29 +55,33 @@ class NESSystem {
     return byteToUnsigned(this.memory_cpu[addr])+ (byteToUnsigned(this.memory_cpu[addr+1])<<8);
   }
   clip_y() {
-    if(byteToSigned(this.Y) > 127) this.Y -= 256;
-    if(byteToSigned(this.Y) < -128) this.Y += 256;
+    //this.Y[0] = this.Y[0]&0xff;
   }
   clip_x() {
-    if(byteToSigned(this.X) > 127) this.X -= 256;
-    if(byteToSigned(this.X) < -128) this.X += 256;
+    //this.X[0] = this.X[0]&0xff;
   }
 
-  get_flag_zero() { return (this.P&0x2)?true:false; }
-  get_flag_carry() { return (this.P&0x1)?true:false; }
-  get_flag_negative() { return (this.P&0x80)?true:false; }
+  get_flag_zero() { return (this.P[0]&0x2)?true:false; }
+  get_flag_carry() { return (this.P[0]&0x1)?true:false; }
+  get_flag_negative() { return (this.P[0]&0x80)?true:false; }
 
   set_flag_zero(bit) {
-    this.P = (this.P & 0xfd) + ((bit)?2:0);
+    this.P[0] = (this.P[0] & 0xfd) + ((bit)?2:0);
   }
   set_flag_carry(bit) {
-    this.P = (this.P & 0xfe) + (bit)?1:0;
+    this.P[0] = (this.P[0] & 0xfe) + ((bit)?1:0);
   }
   set_flag_negative(bit) {
-    this.P = (this.P & 0x7f) + (bit?0x80:0);
+    this.P[0] = (this.P[0] & 0x7f) + (bit?0x80:0);
   }
   set_flag_overflow(bit) {
-    this.P = (this.P & 0xbf) + (bit?0x40:0);
+    this.P[0] = (this.P[0] & 0xbf) + (bit?0x40:0);
+  }
+
+  debug() {
+    console.log("A:" + this.A[0].toString(16)+" X:" + this.X[0].toString(16)+" Y:" + this.Y[0].toString(16)+" PC " + this.PC.toString(16) + ": " + this.memory_cpu[this.PC].toString(16));
+    console.log("Cycles/ops processed: " + this.cycles+" / "+this.ops);
+    console.log("Status: " + this.P[0].toString(2));
   }
 
   /*
@@ -106,218 +115,328 @@ class NESSystem {
 
   run() {
     var running = true;
-    var cycles = 0;
-    var ops = 0;
     while(running) {
       console.log(this.PC.toString(16)+": "+this.memory_cpu[this.PC].toString(16));
+      //if(this.PC == 0x822a) return;
+      console.log("A:" + Number(this.A[0]).toString(16)+" X:" + Number(this.X[0]).toString(16)+" Y:" + Number(this.Y[0]).toString(16)+" PC " + this.PC.toString(16));
       switch (this.memory_cpu[this.PC]) {
+        case 0x9: // ORA imm
+          this.cycles++;
+          this.PC++;
+          var imm = this.memory_cpu[this.PC];
+          this.A[0] = byteToUnsigned(this.A[0]) | byteToUnsigned(imm);
+          this.set_flag_negative(this.A[0]&0x80);
+          this.set_flag_zero(this.A[0]==0);
+          break;
         case 0x10: // BPL (Branch if positive)
           this.PC++;
-          cycles++;
-          if(this.get_flag_negative()) this.PC += byteToSigned(this.memory_cpu[this.PC]);
+          this.cycles++;
+          var offset = byteToSigned(this.memory_cpu[this.PC]);
+          if(offset < 0) offset -= 2;
+          if(this.get_flag_negative() == false) this.PC += offset;
           break;
         case 0x11: // ORA indirect, Y
-          cycles+=4;
+          this.cycles+=4;
           this.PC++;
           var imm = this.memory_cpu[this.PC];
           var load_addr = byteToUnsigned(imm);
-          var value_addr = this.load_abs_addr(load_addr); + this.Y;
-          this.A = byteToUnsigned(this.A) | byteToUnsigned(this.memory_cpu[value_addr]);
+          var value_addr = this.load_abs_addr(load_addr); + this.Y[0];
+          this.A[0] = byteToUnsigned(this.A[0]) | byteToUnsigned(this.memory_cpu[value_addr]);
+          this.set_flag_negative(this.A[0]&0x80);
+          this.set_flag_zero(this.A[0]==0);
           break;
         case 0x20: // JSR (Jump to subroutine)
           this.PC++;
-          cycles++;
+          this.cycles++;
           var abs_addr = this.load_abs_addr(this.PC);
+          this.PC++;
           this.PC++;
           this.push_stack(this.PC&0xff);
           this.push_stack((this.PC&0xff00)>>8);
+          console.log("Push: "+this.PC);
           this.PC = abs_addr-1;
           break;
+        case 0x29: // AND imm
+          this.cycles++;
+          this.PC++;
+          var imm = this.memory_cpu[this.PC];
+          this.A[0] = byteToUnsigned(this.A[0]) & byteToUnsigned(imm);
+          this.set_flag_negative(this.A[0]&0x80);
+          this.set_flag_zero(this.A[0]==0);
+          break;
         case 0x2c: // BIT abs
-          cycles+=3;
+          this.cycles+=3;
           this.PC++;
           var abs_addr = this.load_abs_addr(this.PC);
           this.PC++;
-          this.set_flag_zero((this.memory_cpu[abs_addr] & this.A)?1:0);
+          this.set_flag_zero((byteToUnsigned(this.memory_cpu[abs_addr]) & byteToUnsigned(this.A[0]))?1:0);
           this.set_flag_negative(this.memory_cpu[abs_addr]&0x80);
           this.set_flag_overflow(this.memory_cpu[abs_addr]&0x40);
           break;
         case 0x60: // RTS (return from subroutine)
-          cycles++;
+          this.cycles++;
           var abs_addr = (byteToUnsigned(this.pop_stack())<<8) +byteToUnsigned(this.pop_stack());
+          console.log("Pop: " + abs_addr);
           this.PC = abs_addr-1;
           break;
         case 0x78: // SEI
-          this.P = (this.P | 2);
+          this.P[0] = (this.P[0] | 2);
+          break;
+        case 0x7e: // ROR abs,X
+          this.PC++;
+          this.cycles+=3;
+          var abs_addr = this.load_abs_addr(this.PC)+this.X[0];
+          var val = this.memory_cpu[abs_addr];
+          var carry = this.get_flag_carry();
+          this.set_flag_carry(val&1);
+          val = byteToUnsigned(val) >> 1;
+          val = val + (carry?0x80:0);
+          this.memory_cpu[abs_addr] = val;
+          this.PC++;
+          this.set_flag_zero(val == 0);
+          this.set_flag_negative(val&0x80);
           break;
         case 0x85: // STA zero_page
-          cycles+=2;
+          this.cycles+=2;
           this.PC++;
           var abs_addr = this.memory_cpu[this.PC];
-          this.memory_cpu[abs_addr] = this.A;
-          console.log("STA "+abs_addr.toString(16)+":"+this.A.toString(16));
+          this.memory_cpu[abs_addr] = this.A[0];
+          //console.log("STA "+abs_addr.toString(16)+":"+this.A[0].toString(16));
           break;
         case 0x86: // STX zero_page
-          cycles+=2;
+          this.cycles+=2;
           this.PC++;
           var abs_addr = this.memory_cpu[this.PC];
-          this.memory_cpu[abs_addr] = this.X;
-          console.log("STX "+abs_addr.toString(16)+":"+this.X.toString(16));
+          this.memory_cpu[abs_addr] = this.X[0];
+          //console.log("STX "+abs_addr.toString(16)+":"+this.X[0].toString(16));
           break;
         case 0x88: // DEY DEcrement Y
-          cycles++;
-          this.Y = this.Y - 1;
-          this.set_flag_negative(this.Y&0x80);
-          this.set_flag_zero(this.Y);
+          this.cycles++;
+          this.Y[0] = this.Y[0] - 1;
+          this.set_flag_negative(this.Y[0]&0x80);
+          this.set_flag_zero(this.Y[0]==0);
           this.clip_y();
           break;
+        case 0x8a: // TXA (Transfer X to A)
+          this.cycles++;
+          this.set_flag_negative(this.X[0]&0x80);
+          this.set_flag_zero(this.X[0]==0);
+          this.A[0] = this.X[0];
+          break;
         case 0x8d: // STA abs
-          cycles+=3;
+          this.cycles+=3;
           this.PC++;
           var abs_addr = this.load_abs_addr(this.PC);
           this.PC++;
-          this.memory_cpu[abs_addr] = this.A;
-          console.log("STA "+abs_addr.toString(16)+":"+this.A.toString(16));
+          this.memory_cpu[abs_addr] = this.A[0];
+          //console.log("STA "+abs_addr.toString(16)+":"+this.A[0].toString(16));
           break;
         case 0x90: // BCC (Branch on Carry Clear)
           this.PC++;
-          cycles++;
-          if(this.get_flag_carry() == false) this.PC += byteToSigned(this.memory_cpu[this.PC]);
+          this.cycles++;
+          var offset = byteToSigned(this.memory_cpu[this.PC]);
+          if(offset < 0) offset -= 2;
+          if(this.get_flag_carry() == false) this.PC += offset;
           break;
         case 0x91: // STA indirect, Y
-          cycles+=4;
+          this.cycles+=4;
           this.PC++;
           var imm = this.memory_cpu[this.PC];
           var load_addr = byteToUnsigned(imm);
-          var store_addr = this.load_abs_addr(load_addr); + this.Y;
-          this.memory_cpu[store_addr] = this.A;
-          console.log("STA "+store_addr.toString(16)+":"+this.A.toString(16)+" load: "+load_addr.toString(16));
+          var store_addr = this.load_abs_addr(load_addr); + this.Y[0];
+          this.memory_cpu[store_addr] = this.A[0];
+          //console.log("STA "+store_addr.toString(16)+":"+this.A[0].toString(16)+" load: "+load_addr.toString(16));
           break;
         case 0x99: // STA abs,y
-          cycles+=3;
+          this.cycles+=3;
           this.PC++;
-          var abs_addr = this.load_abs_addr(this.PC)+this.Y;
+          var abs_addr = this.load_abs_addr(this.PC)+this.Y[0];
           this.PC++;
-          this.memory_cpu[abs_addr] = this.A;
-          console.log("STA "+abs_addr.toString(16)+":"+this.A.toString(16));
+          this.memory_cpu[abs_addr] = this.A[0];
+          //console.log("STA "+abs_addr.toString(16)+":"+this.A[0].toString(16));
           break;
         case 0x9a: // TXS
-          this.set_flag_negative(this.X&0x80);
-          this.S = this.X;
+          this.set_flag_negative(this.X[0]&0x80);
+          this.S = this.X[0];
           break;
         case 0xa0: // LDY imm
           this.PC++;
-          cycles++;
-          this.Y = this.memory_cpu[this.PC];
-          this.set_flag_zero(this.Y == 0);
-          this.set_flag_negative(this.Y&0x80);
+          this.cycles++;
+          this.Y[0] = this.memory_cpu[this.PC];
+          this.set_flag_zero(this.Y[0] == 0);
+          this.set_flag_negative(this.Y[0]&0x80);
           break;
         case 0xa2: // LDX imm
           this.PC++;
-          cycles++;
-          this.X = this.memory_cpu[this.PC];
-          this.set_flag_zero(this.X == 0);
-          this.set_flag_negative(this.X&0x80);
+          this.cycles++;
+          this.X[0] = this.memory_cpu[this.PC];
+          this.set_flag_zero(this.X[0] == 0);
+          this.set_flag_negative(this.X[0]&0x80);
           break;
         case 0xa9: // LDA imm
           this.PC++;
-          cycles++;
-          this.A = this.memory_cpu[this.PC];
-          this.set_flag_zero(this.A == 0);
-          this.set_flag_negative(this.A&0x80);
+          this.cycles++;
+          this.A[0] = this.memory_cpu[this.PC];
+          this.set_flag_zero(this.A[0] == 0);
+          this.set_flag_negative(this.A[0]&0x80);
+          break;
+        case 0xac: // LDY abs
+          this.PC++;
+          this.cycles+=3;
+          var abs_addr = this.load_abs_addr(this.PC);
+          this.Y[0] = this.memory_cpu[abs_addr];
+          this.PC++;
+          this.set_flag_zero(this.Y[0] == 0);
+          this.set_flag_negative(this.Y[0]&0x80);
           break;
         case 0xad: // LDA abs
           this.PC++;
-          cycles+=3;
+          this.cycles+=3;
           var abs_addr = this.load_abs_addr(this.PC);
-          this.A = this.memory_cpu[abs_addr];
+          this.A[0] = this.memory_cpu[abs_addr];
           this.PC++;
-          this.set_flag_zero(this.A == 0);
-          this.set_flag_negative(this.A&0x80);
+          this.set_flag_zero(this.A[0] == 0);
+          this.set_flag_negative(this.A[0]&0x80);
+          break;
+        case 0xae: // LDA abs
+          this.PC++;
+          this.cycles+=3;
+          var abs_addr = this.load_abs_addr(this.PC);
+          this.X[0] = this.memory_cpu[abs_addr];
+          this.PC++;
+          this.set_flag_zero(this.X[0] == 0);
+          this.set_flag_negative(this.X[0]&0x80);
           break;
         case 0xb0: // BCS (Branch on Carry Set)
           this.PC++;
-          cycles++;
-          if(this.get_flag_carry()) this.PC += byteToSigned(this.memory_cpu[this.PC]);
+          this.cycles++;
+          var offset = byteToSigned(this.memory_cpu[this.PC]);
+          if(offset < 0) offset -= 2;
+          if(this.get_flag_carry()) this.PC += offset;
+          break;
+        case 0xb1: // LDA indirect, Y
+          this.cycles+=4;
+          this.PC++;
+          var imm = this.memory_cpu[this.PC];
+          var load_addr = byteToUnsigned(imm);
+          var value_addr = this.load_abs_addr(load_addr); + this.Y[0];
+          this.A[0] = this.memory_cpu[value_addr];
+          this.set_flag_negative(this.A[0]&0x80);
+          this.set_flag_zero(this.A[0]==0);
           break;
         case 0xbd: // LDA abs,X
           this.PC++;
-          cycles+=3;
-          var abs_addr = this.load_abs_addr(this.PC)+this.X;
-          this.A = this.memory_cpu[abs_addr];
+          this.cycles+=3;
+          var abs_addr = this.load_abs_addr(this.PC)+this.X[0];
+          this.A[0] = this.memory_cpu[abs_addr];
           this.PC++;
-          this.set_flag_zero(this.A == 0);
-          this.set_flag_negative(this.A&0x80);
+          this.set_flag_zero(this.A[0] == 0);
+          this.set_flag_negative(this.A[0]&0x80);
           break;
         case 0xc0: // CPY imm
           this.PC++;
-          cycles++;
+          this.cycles++;
           var imm = this.memory_cpu[this.PC];
-          var diff = this.Y-imm;
-          this.set_flag_carry(this.Y>imm);
-          this.set_flag_zero(this.Y==imm);
+          var diff = this.Y[0]-imm;
+          this.set_flag_carry(this.Y[0]>imm);
+          this.set_flag_zero(this.Y[0]==imm);
           this.set_flag_negative(diff&0x80);
           break;
         case 0xc8: // INY INcrement Y
-          cycles++;
-          this.Y = this.Y + 1;
-          this.set_flag_negative(this.Y&0x80);
-          this.set_flag_zero(this.Y);
+          this.cycles++;
+          this.Y[0] = this.Y[0] + 1;
+          this.set_flag_negative(this.Y[0]&0x80);
+          this.set_flag_zero(this.Y[0]==0);
           this.clip_y();
           break;
         case 0xc9: // CMP imm
           this.PC++;
-          cycles++;
+          this.cycles++;
           var imm = this.memory_cpu[this.PC];
-          var diff = this.A-imm;
-          this.set_flag_carry(this.A>imm);
-          this.set_flag_zero(this.A==imm);
+          var diff = this.A[0]-imm;
+          this.set_flag_carry(this.A[0]>imm);
+          this.set_flag_zero(this.A[0]==imm);
           this.set_flag_negative(diff&0x80);
           break;
         case 0xca: // DEX DEcrement X
-          cycles++;
-          this.X = this.X - 1;
-          this.set_flag_negative(this.X&0x80);
-          this.set_flag_zero(this.X);
+          this.cycles++;
+          this.X[0] = this.X[0] - 1;
+          this.set_flag_negative(this.X[0]&0x80);
+          this.set_flag_zero(this.X[0]==0);
           this.clip_x();
+          break;
+        case 0xcc: // CPY abs
+          this.PC++;
+          this.cycles++;
+          var abs_addr = this.load_abs_addr(this.PC)+this.X[0];
+          var imm = this.memory_cpu[abs_addr];
+          this.PC++;
+          var diff = this.Y[0]-imm;
+          this.set_flag_carry(this.Y[0]>imm);
+          this.set_flag_zero(this.Y[0]==imm);
+          this.set_flag_negative(diff&0x80);
           break;
         case 0xd0: // BNE (Branch if not equal)
           this.PC++;
-          cycles++;
-          if(this.get_flag_zero() == false) this.PC += byteToSigned(this.memory_cpu[this.PC]);
+          this.cycles++;
+          var offset = byteToSigned(this.memory_cpu[this.PC]);
+          if(offset < 0) offset -= 2;
+          if(this.get_flag_zero() == false) this.PC += offset;
+          break;
+        case 0xd6: // DEC zero_page,X
+          this.cycles+=2;
+          this.PC++;
+          var abs_addr = this.memory_cpu[this.PC]+this.X[0];
+          this.memory_cpu[abs_addr]=this.memory_cpu[abs_addr]-1;
+          this.set_flag_negative(this.memory_cpu[abs_addr]&0x80);
+          this.set_flag_zero(this.memory_cpu[abs_addr]==0);
           break;
         case 0xd8: // CLD
-          this.P = (this.P & ~4);
+          this.P[0] = (this.P[0] & 0xf7);
           break;
-        case 0xe0: // CMX imm
+        case 0xe0: // CPX imm
           this.PC++;
-          cycles++;
+          this.cycles++;
           var imm = this.memory_cpu[this.PC];
-          var diff = this.X-imm;
-          this.set_flag_carry(this.X>imm);
-          this.set_flag_zero(this.X==imm);
+          var diff = this.X[0]-imm;
+          this.set_flag_carry(this.X[0]>imm);
+          this.set_flag_zero(this.X[0]==imm);
           this.set_flag_negative(diff&0x80);
           break;
+        case 0xf0: // BEQ (Branch if equal)
+          this.PC++;
+          this.cycles++;
+          var offset = byteToSigned(this.memory_cpu[this.PC]);
+          if(offset < 0) offset -= 2;
+          if(this.get_flag_zero()) this.PC += offset;
+          break;
+        case 0xf8: // SED
+          this.P[0] = (this.P[0] | 0x8);
+          break;
         default:
-          console.log("A:" + this.A.toString(16)+" X:" + this.X.toString(16)+" Y:" + this.Y.toString(16)+" PC " + this.PC.toString(16) + ": " + this.memory_cpu[this.PC].toString(16));
-          console.log("Cycles/ops processed: " + cycles+"/"+ops);
-          console.log("Status: " + this.P.toString(2));
+          this.debug();
           return;
       }
       this.PC++;
-      cycles++;
-      ops++;
+      this.cycles++;
+      this.ops++;
     }
   }
 }
 
+var system = new NESSystem();
 
-
-
+/*
+process.on('SIGINT', function() {
+  console.log("Caught interrupt signal");
+  system.debug();
+  process.exit(0);
+});
+*/
 
 function main()
 {
-  var system = new NESSystem();
+
   var binaryData = fs.readFileSync('./mario.nes');
   if(system.parseHeader(binaryData)) {
     system.run();
