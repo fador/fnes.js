@@ -153,7 +153,7 @@ class NESSystem {
       console.log(this.PC.toString(16)+": "+this.memory_cpu[this.PC].toString(16));
       if(this.PC == 0x8057) return 0;
       //console.log("A:" + Number(this.A[0]).toString(16)+" X:" + Number(this.X[0]).toString(16)+" Y:" + Number(this.Y[0]).toString(16)+" PC " + this.PC.toString(16));
-      switch (this.memory_cpu[this.PC]) {
+      switch (this.read_memory(this.PC)) {
         case 0x9: // ORA imm
           this.cycles++;
           this.PC++;
@@ -166,7 +166,7 @@ class NESSystem {
         case 0x10: // BPL (Branch if positive)
           this.PC++;
           this.cycles++;
-          var offset = byteToSigned(this.memory_cpu[this.PC]);
+          var offset = byteToSigned(this.read_memory(this.PC));
           if(offset < 0) offset -= 2;
           if(this.debug & DEBUG_OPS) console.log("BPL $"+(this.PC+offset+1).toString(16));
           if(this.get_flag_negative() == false) this.PC += offset;
@@ -178,7 +178,7 @@ class NESSystem {
           var imm = this.read_memory(this.PC);
           var load_addr = byteToUnsigned(imm);
           var value_addr = this.load_abs_addr(load_addr); + this.Y[0];
-          this.A[0] = byteToUnsigned(this.A[0]) | byteToUnsigned(this.memory_cpu[value_addr]);
+          this.A[0] = byteToUnsigned(this.A[0]) | byteToUnsigned(this.read_memory(value_addr));
           this.set_flag_negative(this.A[0]&0x80);
           this.set_flag_zero(this.A[0]==0);
           if(this.debug & DEBUG_OPS) console.log("ORA ($"+(Number(load_addr).toString(16))+"), Y");
@@ -208,7 +208,7 @@ class NESSystem {
           this.PC++;
           var abs_addr = this.load_abs_addr(this.PC);
           this.PC++;
-          this.set_flag_zero((byteToUnsigned(this.memory_cpu[abs_addr]) & byteToUnsigned(this.A[0]))?1:0);
+          this.set_flag_zero((byteToUnsigned(this.read_memory(abs_addr)) & byteToUnsigned(this.A[0]))?1:0);
           this.set_flag_negative(this.memory_cpu[abs_addr]&0x80);
           this.set_flag_overflow(this.memory_cpu[abs_addr]&0x40);
           if(this.debug & DEBUG_OPS) console.log("BIT $"+Number(abs_addr).toString(16));
@@ -286,7 +286,7 @@ class NESSystem {
         case 0x90: // BCC (Branch on Carry Clear)
           this.PC++;
           this.cycles++;
-          var offset = byteToSigned(this.memory_cpu[this.PC]);
+          var offset = byteToSigned(this.read_memory(this.PC));
           if(offset < 0) offset -= 2;
           if(this.debug & DEBUG_OPS) console.log("BCC $"+(this.PC+offset+1).toString(16));
           if(this.get_flag_carry() == false) this.PC += offset;
@@ -373,7 +373,7 @@ class NESSystem {
         case 0xb0: // BCS (Branch on Carry Set)
           this.PC++;
           this.cycles++;
-          var offset = byteToSigned(this.memory_cpu[this.PC]);
+          var offset = byteToSigned(this.read_memory(this.PC));
           if(offset < 0) offset -= 2;
           if(this.debug & DEBUG_OPS) console.log("BCS $"+(this.PC+offset+1).toString(16));
           if(this.get_flag_carry()) this.PC += offset;
@@ -450,7 +450,7 @@ class NESSystem {
         case 0xd0: // BNE (Branch if not equal)
           this.PC++;
           this.cycles++;
-          var offset = byteToSigned(this.memory_cpu[this.PC]);
+          var offset = byteToSigned(this.read_memory(this.PC));
           if(offset < 0) offset -= 2;
           if(this.debug & DEBUG_OPS) console.log("BNE $"+(this.PC+offset+1).toString(16));
           if(this.get_flag_zero() == false) this.PC += offset;
@@ -491,7 +491,7 @@ class NESSystem {
         case 0xf0: // BEQ (Branch if equal)
           this.PC++;
           this.cycles++;
-          var offset = byteToSigned(this.memory_cpu[this.PC]);
+          var offset = byteToSigned(this.read_memory(this.PC));
           if(offset < 0) offset -= 2;
           if(this.debug & DEBUG_OPS) console.log("BEQ $"+(this.PC+offset+1).toString(16));
           if(this.get_flag_zero()) this.PC += offset;
