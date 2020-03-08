@@ -235,7 +235,7 @@ class NESSystem {
           this.PC++;
           this.cycles+=3;
           var abs_addr = this.load_abs_addr(this.PC)+this.X[0];
-          var val = this.memory_cpu[abs_addr];
+          var val = this.read_memory(abs_addr);
           var carry = this.get_flag_carry();
           this.set_flag_carry(val&1);
           val = byteToUnsigned(val) >> 1;
@@ -344,7 +344,7 @@ class NESSystem {
           this.PC++;
           this.cycles+=3;
           var abs_addr = this.load_abs_addr(this.PC);
-          this.Y[0] = this.memory_cpu[abs_addr];
+          this.Y[0] = this.read_memory(abs_addr);
           this.PC++;
           this.set_flag_zero(this.Y[0] == 0);
           this.set_flag_negative(this.Y[0]&0x80);
@@ -354,7 +354,7 @@ class NESSystem {
           this.PC++;
           this.cycles+=3;
           var abs_addr = this.load_abs_addr(this.PC);
-          this.A[0] = this.memory_cpu[abs_addr];
+          this.A[0] = this.read_memory(abs_addr);
           this.PC++;
           this.set_flag_zero(this.A[0] == 0);
           this.set_flag_negative(this.A[0]&0x80);
@@ -364,7 +364,7 @@ class NESSystem {
           this.PC++;
           this.cycles+=3;
           var abs_addr = this.load_abs_addr(this.PC);
-          this.X[0] = this.memory_cpu[abs_addr];
+          this.X[0] = this.read_memory(abs_addr);
           this.PC++;
           this.set_flag_zero(this.X[0] == 0);
           this.set_flag_negative(this.X[0]&0x80);
@@ -393,7 +393,7 @@ class NESSystem {
           this.PC++;
           this.cycles+=3;
           var abs_addr = this.load_abs_addr(this.PC)+this.X[0];
-          this.A[0] = this.memory_cpu[abs_addr];
+          this.A[0] = this.read_memory(abs_addr);
           this.PC++;
           this.set_flag_zero(this.A[0] == 0);
           this.set_flag_negative(this.A[0]&0x80);
@@ -439,7 +439,7 @@ class NESSystem {
           this.PC++;
           this.cycles++;
           var abs_addr = this.load_abs_addr(this.PC)+this.X[0];
-          var imm = this.memory_cpu[abs_addr];
+          var imm = this.read_memory(abs_addr);
           this.PC++;
           var diff = this.Y[0]-imm;
           this.set_flag_carry(this.Y[0]>imm);
