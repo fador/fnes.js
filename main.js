@@ -49,9 +49,8 @@ class NESSystem {
     this.debug = DEBUG_OPS;
     this.cycles = 0;
     this.ops = 0;
-    //this.PC = 0x8000;
-    this.PC = 0xC000;
-    this.S = 0xfe;
+    this.PC = 0x8000;
+    this.S = 0xfd;
     this.P = Buffer.alloc(1);
     this.P[0] = 0x24;
     this.A = Buffer.alloc(1);
@@ -60,6 +59,8 @@ class NESSystem {
     this.header = new NESHeader();
     this.memory_cpu = Buffer.alloc(0xffff);
     this.memory_ppu = Buffer.alloc(0x3fff);
+
+    this.temp_regstate = "";
   }
 
   push_stack(byte) {
@@ -213,7 +214,8 @@ class NESSystem {
   }
 
   run() {
-      //console.log(this.PC.toString(16)+": "+this.memory_cpu[this.PC].toString(16));
+      if(this.debug & DEBUG_OPS) this.temp_regstate = this.get_registers_string();
+    //console.log(this.PC.toString(16)+": "+this.memory_cpu[this.PC].toString(16));
       //if(this.PC == 0x8057) return 0;
       //console.log("A:" + Number(this.A[0]).toString(16)+" X:" + Number(this.X[0]).toString(16)+" Y:" + Number(this.Y[0]).toString(16)+" PC " + this.PC.toString(16));
       if(this.nmi) {
@@ -759,6 +761,7 @@ class NESSystem {
           break;
         case 0xea:  // NOP
           var original_PC = this.PC;
+          this.print_op_info(this.PC-original_PC,"NOP");
           break;
         case 0xee: // INC abs
           this.cycles+=2;
@@ -766,7 +769,7 @@ class NESSystem {
           var val = this.read_memory(abs_addr)+1;
           this.write_memory(abs_addr, val);
           this.set_negative_zero(val);
-          this.print_op_info(this.PC-original_PC,"NOP");
+          this.print_op_info(this.PC-original_PC,"INC $"+Number(abs_addr).toString(16));
           break;
         case 0xf0:  // BEQ (Branch if equal)
           var original_PC = this.PC;
@@ -801,6 +804,15 @@ class NESSystem {
       return 1;
   }
 
+  get_registers_string() {
+    var registers = "A:"+Number(this.A[0]).toString(16).padStart(2,"0").toUpperCase();
+    registers += " X:"+Number(this.X[0]).toString(16).padStart(2,"0").toUpperCase();
+    registers += " Y:"+Number(this.Y[0]).toString(16).padStart(2,"0").toUpperCase();
+    registers += " P:"+Number(this.P[0]).toString(16).padStart(2,"0").toUpperCase();
+    registers += " SP:"+Number(this.S).toString(16).padStart(2,"0").toUpperCase();
+    return registers;
+  }
+
   print_op_info(offset, string) {
 
     if(this.debug & DEBUG_OPS) {
@@ -809,12 +821,8 @@ class NESSystem {
       for(var i = 0; i < offset+1; i++) {
         data += " "+Number(this.memory_cpu[this.PC-offset+i]).toString(16).toUpperCase();
       }
-      var registers = "A:"+Number(this.A[0]).toString(16).padStart(2,"0").toUpperCase();
-      registers += " X:"+Number(this.X[0]).toString(16).padStart(2,"0").toUpperCase();
-      registers += " Y:"+Number(this.Y[0]).toString(16).padStart(2,"0").toUpperCase();
-      registers += " P:"+Number(this.P[0]).toString(16).padStart(2,"0").toUpperCase();
-      registers += " SP:"+Number(this.S).toString(16).padStart(2,"0").toUpperCase();
-      console.log(addr+ data.padEnd(11) + string.padEnd(32)+registers);
+
+      console.log(addr+ data.padEnd(11) + string.padEnd(32)+this.temp_regstate);
     };
   }
 }
