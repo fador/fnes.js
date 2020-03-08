@@ -57,16 +57,16 @@ class NESSystem {
   }
 
   push_stack(byte) {
-    this.memory_cpu[0x100+this.S] = byte;
+    this.write_memory(0x100+this.S, byte);
     this.S--;
   }
   pop_stack() {
     this.S++;
-    return this.memory_cpu[0x100+this.S];
+    return this.read_memory(0x100+this.S);
   }
 
   load_abs_addr(addr) {
-    return byteToUnsigned(this.memory_cpu[addr])+ (byteToUnsigned(this.memory_cpu[addr+1])<<8);
+    return byteToUnsigned(this.read_memory(addr))+ (byteToUnsigned(this.read_memory(addr+1))<<8);
   }
 
   read_memory(addr) {
@@ -250,14 +250,14 @@ class NESSystem {
           this.cycles+=2;
           this.PC++;
           var abs_addr = this.read_memory(this.PC);
-          this.memory_cpu[abs_addr] = this.A[0];
+          this.write_memory(abs_addr, this.A[0]);
           if(this.debug & DEBUG_OPS) console.log("STA $00"+Number(abs_addr).toString(16));
           break;
         case 0x86: // STX zero_page
           this.cycles+=2;
           this.PC++;
           var abs_addr = this.read_memory(this.PC);
-          this.memory_cpu[abs_addr] = this.X[0];
+          this.write_memory(abs_addr, this.X[0]);
           if(this.debug & DEBUG_OPS) console.log("STX $00"+Number(abs_addr).toString(16));
           break;
         case 0x88: // DEY DEcrement Y
@@ -280,7 +280,7 @@ class NESSystem {
           this.PC++;
           var abs_addr = this.load_abs_addr(this.PC);
           this.PC++;
-          this.memory_cpu[abs_addr] = this.A[0];
+          this.write_memory(abs_addr, this.A[0]);
           if(this.debug & DEBUG_OPS) console.log("STA $"+Number(abs_addr).toString(16));
           break;
         case 0x90: // BCC (Branch on Carry Clear)
@@ -297,7 +297,7 @@ class NESSystem {
           var imm = this.read_memory(this.PC);
           var load_addr = byteToUnsigned(imm);
           var store_addr = this.load_abs_addr(load_addr); + this.Y[0];
-          this.memory_cpu[store_addr] = this.A[0];
+          this.write_memory(store_addr, this.A[0]);
           if(this.debug & DEBUG_OPS) console.log("STA ($"+(load_addr).toString(16)+"),Y");
           break;
         case 0x99: // STA abs,y
@@ -305,7 +305,7 @@ class NESSystem {
           this.PC++;
           var abs_addr = this.load_abs_addr(this.PC)+this.Y[0];
           this.PC++;
-          this.memory_cpu[abs_addr] = this.A[0];
+          this.write_memory(abs_addr, this.A[0]);
           if(this.debug & DEBUG_OPS) console.log("STA $"+(abs_addr).toString(16)+",Y");
           break;
         case 0x9a: // TXS
@@ -384,7 +384,7 @@ class NESSystem {
           var imm = this.read_memory(this.PC);
           var load_addr = byteToUnsigned(imm);
           var value_addr = this.load_abs_addr(load_addr); + this.Y[0];
-          this.A[0] = this.memory_cpu[value_addr];
+          this.A[0] = this.read_memory(value_addr);
           this.set_flag_negative(this.A[0]&0x80);
           this.set_flag_zero(this.A[0]==0);
           if(this.debug & DEBUG_OPS) console.log("LDA ($"+Number(load_addr).toString(16)+"),Y");
