@@ -319,7 +319,7 @@ class NESSystem {
           this.cycles+=2;
           var abs_addr = this.get_imm();
           var val = this.read_memory(abs_addr);
-          this.set_flag_zero((byteToUnsigned(val) & byteToUnsigned(this.A[0]))?1:0);
+          this.set_flag_zero((byteToUnsigned(val) & byteToUnsigned(this.A[0]))?0:1);
           this.set_flag_negative(val&0x80);
           this.set_flag_overflow(val&0x40);
           this.print_op_info(this.PC-original_PC,"BIT $00"+Number(abs_addr).toString(16));
@@ -347,7 +347,7 @@ class NESSystem {
           this.cycles+=3;
           var abs_addr = this.get_addr_absolute();
           var val = this.read_memory(abs_addr);
-          this.set_flag_zero((byteToUnsigned(val) & byteToUnsigned(this.A[0]))?1:0);
+          this.set_flag_zero((byteToUnsigned(val) & byteToUnsigned(this.A[0]))?0:1);
           this.set_flag_negative(val&0x80);
           this.set_flag_overflow(val&0x40);
           this.print_op_info(this.PC-original_PC,"BIT $"+Number(abs_addr).toString(16));
