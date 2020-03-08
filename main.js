@@ -68,6 +68,15 @@ class NESSystem {
   load_abs_addr(addr) {
     return byteToUnsigned(this.memory_cpu[addr])+ (byteToUnsigned(this.memory_cpu[addr+1])<<8);
   }
+
+  read_memory(addr) {
+    return this.memory_cpu[addr];
+  }
+  write_memory(addr, byte) {
+    this.memory_cpu[addr] = byte;
+    return true;
+  }
+
   clip_y() {
     //this.Y[0] = this.Y[0]&0xff;
   }
@@ -148,7 +157,7 @@ class NESSystem {
         case 0x9: // ORA imm
           this.cycles++;
           this.PC++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           this.A[0] = byteToUnsigned(this.A[0]) | byteToUnsigned(imm);
           this.set_flag_negative(this.A[0]&0x80);
           this.set_flag_zero(this.A[0]==0);
@@ -166,7 +175,7 @@ class NESSystem {
         case 0x11: // ORA indirect, Y
           this.cycles+=4;
           this.PC++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           var load_addr = byteToUnsigned(imm);
           var value_addr = this.load_abs_addr(load_addr); + this.Y[0];
           this.A[0] = byteToUnsigned(this.A[0]) | byteToUnsigned(this.memory_cpu[value_addr]);
@@ -188,7 +197,7 @@ class NESSystem {
         case 0x29: // AND imm
           this.cycles++;
           this.PC++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           this.A[0] = byteToUnsigned(this.A[0]) & byteToUnsigned(imm);
           this.set_flag_negative(this.A[0]&0x80);
           this.set_flag_zero(this.A[0]==0);
@@ -231,7 +240,7 @@ class NESSystem {
           this.set_flag_carry(val&1);
           val = byteToUnsigned(val) >> 1;
           val = val + (carry?0x80:0);
-          this.memory_cpu[abs_addr] = val;
+          this.write_memory(abs_addr, val);
           this.PC++;
           this.set_flag_zero(val == 0);
           this.set_flag_negative(val&0x80);
@@ -240,14 +249,14 @@ class NESSystem {
         case 0x85: // STA zero_page
           this.cycles+=2;
           this.PC++;
-          var abs_addr = this.memory_cpu[this.PC];
+          var abs_addr = this.read_memory(this.PC);
           this.memory_cpu[abs_addr] = this.A[0];
           if(this.debug & DEBUG_OPS) console.log("STA $00"+Number(abs_addr).toString(16));
           break;
         case 0x86: // STX zero_page
           this.cycles+=2;
           this.PC++;
-          var abs_addr = this.memory_cpu[this.PC];
+          var abs_addr = this.read_memory(this.PC);
           this.memory_cpu[abs_addr] = this.X[0];
           if(this.debug & DEBUG_OPS) console.log("STX $00"+Number(abs_addr).toString(16));
           break;
@@ -285,7 +294,7 @@ class NESSystem {
         case 0x91: // STA indirect, Y
           this.cycles+=4;
           this.PC++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           var load_addr = byteToUnsigned(imm);
           var store_addr = this.load_abs_addr(load_addr); + this.Y[0];
           this.memory_cpu[store_addr] = this.A[0];
@@ -307,7 +316,7 @@ class NESSystem {
         case 0xa0: // LDY imm
           this.PC++;
           this.cycles++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           this.Y[0] = imm;
           this.set_flag_zero(this.Y[0] == 0);
           this.set_flag_negative(this.Y[0]&0x80);
@@ -316,7 +325,7 @@ class NESSystem {
         case 0xa2: // LDX imm
           this.PC++;
           this.cycles++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           this.X[0] = imm;
           this.set_flag_zero(this.X[0] == 0);
           this.set_flag_negative(this.X[0]&0x80);
@@ -325,7 +334,7 @@ class NESSystem {
         case 0xa9: // LDA imm
           this.PC++;
           this.cycles++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           this.A[0] = imm;
           this.set_flag_zero(this.A[0] == 0);
           this.set_flag_negative(this.A[0]&0x80);
@@ -372,7 +381,7 @@ class NESSystem {
         case 0xb1: // LDA indirect, Y
           this.cycles+=4;
           this.PC++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           var load_addr = byteToUnsigned(imm);
           var value_addr = this.load_abs_addr(load_addr); + this.Y[0];
           this.A[0] = this.memory_cpu[value_addr];
@@ -393,7 +402,7 @@ class NESSystem {
         case 0xc0: // CPY imm
           this.PC++;
           this.cycles++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           var diff = this.Y[0]-imm;
           this.set_flag_carry(this.Y[0]>imm);
           this.set_flag_zero(this.Y[0]==imm);
@@ -411,7 +420,7 @@ class NESSystem {
         case 0xc9: // CMP imm
           this.PC++;
           this.cycles++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           var diff = this.A[0]-imm;
           this.set_flag_carry(this.A[0]>imm);
           this.set_flag_zero(this.A[0]==imm);
@@ -462,7 +471,7 @@ class NESSystem {
         case 0xe0: // CPX imm
           this.PC++;
           this.cycles++;
-          var imm = this.memory_cpu[this.PC];
+          var imm = this.read_memory(this.PC);
           var diff = this.X[0]-imm;
           this.set_flag_carry(this.X[0]>imm);
           this.set_flag_zero(this.X[0]==imm);
