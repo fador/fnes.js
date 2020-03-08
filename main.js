@@ -239,6 +239,12 @@ class NESSystem {
           this.set_negative_zero(this.A[0]);
           this.print_op_info(this.PC-original_PC,"ORA $"+Number(imm).toString(16));
           break;
+        case 0x8:  // PHP (Push Processor status)
+          var original_PC = this.PC;
+          this.cycles+=2;
+          this.push_stack(this.P[0]);
+          this.print_op_info(this.PC-original_PC,"PHP");
+          break;
         case 0x9:  // ORA imm
           var original_PC = this.PC;
           this.cycles++;
@@ -323,6 +329,12 @@ class NESSystem {
           this.set_flag_negative(val&0x80);
           this.set_flag_overflow(val&0x40);
           this.print_op_info(this.PC-original_PC,"BIT $00"+Number(abs_addr).toString(16));
+          break;
+        case 0x28:  // PLP (Pull Processor status)
+          var original_PC = this.PC;
+          this.cycles+=3;
+          this.P[0] = this.pop_stack();
+          this.print_op_info(this.PC-original_PC,"PLP");
           break;
         case 0x29:  // AND imm
           var original_PC = this.PC;
