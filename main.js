@@ -285,6 +285,25 @@ class NESSystem {
           this.set_negative_zero(this.A[0]);
           this.print_op_info(this.PC-original_PC,"ASL A");
           break;
+        case 0xd:  // ORA abs
+          original_PC = this.PC;
+          this.cycles+=4;
+          var abs_addr = this.get_addr_absolute();
+          this.A[0] = byteToUnsigned(this.A[0]) | byteToUnsigned(this.read_memory(abs_addr));
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"ORA $"+(Number(load_addr).toString(16)));
+          break;
+        case 0x0e:  // ASL abs (arithmetic shift left), accumulator
+          original_PC = this.PC;
+          this.cycles++;
+          var addr = this.get_addr_absolute();
+          var val = this.read_memory(addr);
+          this.set_flag_carry((val&0x80)?1:0);
+          val = (byteToUnsigned(val)<<1)&0xff;
+          this.write_memory(addr,val);
+          this.set_negative_zero(val);
+          this.print_op_info(this.PC-original_PC,"ASL $"+Number(addr).toString(16));
+          break;
         case 0x10:  // BPL (Branch if positive)
           original_PC = this.PC;
           this.PC++;
@@ -343,11 +362,9 @@ class NESSystem {
         case 0x21:  // AND indirect,X
           original_PC = this.PC;
           this.cycles++;
-          var load_addr = byteToUnsigned(this.get_imm())+this.X[0];
-          var value_addr = this.load_abs_addr_zeropage(load_addr);
-          this.A[0] = byteToUnsigned(this.A[0]) & this.read_memory(value_addr);
+          this.A[0] = byteToUnsigned(this.A[0]) & this.read_indirect_x();
           this.set_negative_zero(this.A[0]);
-          this.print_op_info(this.PC-original_PC,"AND ($"+(Number(load_addr).toString(16))+",X)");
+          this.print_op_info(this.PC-original_PC,"AND ($"+(Number(this.temp_load_addr).toString(16))+",X)");
           break;
         case 0x24:  // BIT zeropage
           original_PC = this.PC;
@@ -411,6 +428,27 @@ class NESSystem {
           this.set_flag_overflow(val&0x40);
           this.print_op_info(this.PC-original_PC,"BIT $"+Number(abs_addr).toString(16));
           break;
+        case 0x2d:  // AND abs
+          original_PC = this.PC;
+          this.cycles++;
+          var abs_addr = this.get_addr_absolute();
+          var val = this.read_memory(abs_addr);
+          this.A[0] = byteToUnsigned(this.A[0]) & val;
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"AND $"+(Number(abs_addr).toString(16)));
+          break;
+        case 0x2e:  // ROL abs (rotate left)
+          original_PC = this.PC;
+          this.cycles++;
+          var addr = this.get_addr_absolute();
+          var val = this.read_memory(addr);
+          var carry = this.get_flag_carry();
+          this.set_flag_carry((val&0x80)?1:0);
+          val = ((byteToUnsigned(val)<<1)+carry)&0xff;
+          this.write_memory(addr, val);
+          this.set_negative_zero(val);
+          this.print_op_info(this.PC-original_PC,"ROL $"+(Number(addr).toString(16)));
+          break;
         case 0x30:  // BMI (Branch on MInus)
           original_PC = this.PC;
           this.cycles++;
@@ -418,6 +456,13 @@ class NESSystem {
           if(offset < 0) offset -= 2;
           this.print_op_info(this.PC-original_PC,"BMI $"+(this.PC+offset+1).toString(16));
           if(this.get_flag_negative()) this.PC += offset;
+          break;
+        case 0x31:  // AND indirect,Y
+          original_PC = this.PC;
+          this.cycles++;
+          this.A[0] = byteToUnsigned(this.A[0]) & this.read_indirect_y();
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"AND ($"+(Number(this.temp_load_addr).toString(16))+"),Y");
           break;
         case 0x38:  // SEC (set Carry)
           original_PC = this.PC;
@@ -496,12 +541,30 @@ class NESSystem {
           break;
         case 0x4c:  // JMP, abs
           original_PC = this.PC;
-          this.PC++;
           this.cycles+=2;
-          var abs_addr = this.load_abs_addr(this.PC);
-          this.PC++;
+          var abs_addr = this.get_addr_absolute();
           this.print_op_info(this.PC-original_PC,"JMP $"+Number(abs_addr).toString(16));
           this.PC = abs_addr-1;
+          break;
+        case 0x4d:  // EOR abs (Exclusive or)
+          original_PC = this.PC;
+          this.cycles+=3;
+          var addr = this.get_addr_absolute();
+          var val = this.read_memory(addr)^this.A[0];
+          this.A[0] = val;
+          this.set_negative_zero(val);
+          this.print_op_info(this.PC-original_PC,"EOR $"+Number(addr).toString(16));
+          break;
+        case 0x4e:  // LSR abs (logical shift right)
+          original_PC = this.PC;
+          this.cycles++;
+          var addr = this.get_addr_absolute();
+          var val = this.read_memory(addr);
+          this.set_flag_carry(val&1);
+          val = byteToUnsigned(val)>>1;
+          this.write_memory(addr, val);
+          this.set_negative_zero(val);
+          this.print_op_info(this.PC-original_PC,"LSR $"+Number(addr).toString(16));
           break;
         case 0x50:  // BVC (Branch on oVerflow Clear)
           original_PC = this.PC;
@@ -511,6 +574,14 @@ class NESSystem {
           if(offset < 0) offset -= 2;
           this.print_op_info(this.PC-original_PC,"BVC $"+(this.PC+offset+1).toString(16));
           if(this.get_flag_overflow() == false) this.PC += offset;
+          break;
+        case 0x51:  // EOR indirect,Y (Exclusive or)
+          original_PC = this.PC;
+          this.cycles+=2;
+          var val = this.read_indirect_y()^this.A[0];
+          this.A[0] = val;
+          this.set_negative_zero(val);
+          this.print_op_info(this.PC-original_PC,"EOR ($"+Number(imm).toString(16)+"),Y");
           break;
         case 0x60:  // RTS (return from subroutine)
           original_PC = this.PC;
@@ -570,12 +641,30 @@ class NESSystem {
           break;
         case 0x6c:  // JMP, indirect
           original_PC = this.PC;
-          this.PC++;
           this.cycles+=4;
-          var abs_addr = this.load_abs_addr(this.PC);
-          this.PC++;
+          var abs_addr = this.get_addr_absolute();
           this.print_op_info(this.PC-original_PC,"JMP ($"+Number(abs_addr).toString(16)+")");
-          this.PC = this.load_abs_addr(abs_addr)-1;
+          this.PC = this.load_abs_addr_zeropage(abs_addr)-1;
+          break;
+        case 0x6d:  // ADC abs (add with carry)
+          original_PC = this.PC;
+          this.cycles+=3;
+          var abs_addr = this.get_addr_absolute();
+          var val = this.read_memory(abs_addr);
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"ADC $"+(abs_addr).toString(16));
+          break;
+        case 0x6e:  // ROR abs (rotate right)
+          original_PC = this.PC;
+          this.cycles++;
+          var addr = this.get_addr_absolute();
+          var val = this.read_memory(addr);
+          var carry = this.get_flag_carry();
+          this.set_flag_carry((val&1));
+          val = (byteToUnsigned(val)>>1)+(carry?0x80:0);
+          this.write_memory(addr, val);
+          this.set_negative_zero(val);
+          this.print_op_info(this.PC-original_PC,"ROR $"+(addr).toString(16));
           break;
         case 0x70:  // BVS (Branch on oVerflow Set)
           original_PC = this.PC;
@@ -585,6 +674,13 @@ class NESSystem {
           if(offset < 0) offset -= 2;
           this.print_op_info(this.PC-original_PC,"BVS $"+(this.PC+offset+1).toString(16));
           if(this.get_flag_overflow()) this.PC += offset;
+          break;
+        case 0x71:  // ADC indirect, Y (add with carry)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_indirect_y();
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"ADC ($"+(val).toString(16)+"),Y");
           break;
         case 0x78:  // SEI
           original_PC = this.PC;
@@ -648,6 +744,13 @@ class NESSystem {
           this.A[0] = this.X[0];
           this.print_op_info(this.PC-original_PC,"TXA");
           break;
+        case 0x8c:  // STY abs
+          original_PC = this.PC;
+          this.cycles+=2;
+          var abs_addr = this.get_addr_absolute();
+          this.write_memory(abs_addr, this.Y[0]);
+          this.print_op_info(this.PC-original_PC,"STY $"+Number(abs_addr).toString(16));
+          break;
         case 0x8d:  // STA abs
           original_PC = this.PC;
           this.cycles+=3;
@@ -675,7 +778,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles+=4;
           this.write_indirect_y(this.A[0]);
-          this.print_op_info(this.PC-original_PC,"STA ($"+(load_addr).toString(16)+"),Y");
+          this.print_op_info(this.PC-original_PC,"STA ($"+Number(this.temp_load_addr).toString(16)+"),Y");
           break;
         case 0x98:  // TYA (Transfer Y to A)
           original_PC = this.PC;
@@ -768,9 +871,8 @@ class NESSystem {
           break;
         case 0xa9:  // LDA imm
           original_PC = this.PC;
-          this.PC++;
           this.cycles++;
-          var imm = this.read_memory(this.PC);
+          var imm = this.get_imm();
           this.A[0] = imm;
           this.set_negative_zero(this.A[0]);
           this.print_op_info(this.PC-original_PC,"LDA #"+imm);
@@ -824,9 +926,9 @@ class NESSystem {
         case 0xb1:  // LDA indirect, Y
           original_PC = this.PC;
           this.cycles+=4;
-          this.A[0] = this.read_indirect_y()
+          this.A[0] = this.read_indirect_y();
           this.set_negative_zero(this.A[0]);
-          this.print_op_info(this.PC-original_PC,"LDA ($"+Number(load_addr).toString(16)+"),Y");
+          this.print_op_info(this.PC-original_PC,"LDA ($"+Number(this.temp_load_addr).toString(16)+"),Y");
           break;
         case 0xb8:  // CLV
           original_PC = this.PC;
@@ -842,11 +944,9 @@ class NESSystem {
           break;
         case 0xbd:  // LDA abs,X
           original_PC = this.PC;
-          this.PC++;
           this.cycles+=3;
-          var abs_addr = this.load_abs_addr(this.PC)+this.X[0];
+          var abs_addr = this.get_addr_absolute()+this.X[0];
           this.A[0] = this.read_memory(abs_addr);
-          this.PC++;
           this.set_negative_zero(this.A[0]);
           this.print_op_info(this.PC-original_PC,"LDA $"+Number(abs_addr).toString(16)+",X");
           break;
@@ -899,6 +999,15 @@ class NESSystem {
           this.set_flag_negative(this.A[0]==imm?0:diff&0x80);
           this.print_op_info(this.PC-original_PC,"CMP $00");
           break;
+        case 0xc6:  // DEC zero_page
+          original_PC = this.PC;
+          this.cycles+=2;
+          var abs_addr = this.get_imm();
+          var val = this.read_memory(abs_addr)-1;
+          this.write_memory(abs_addr,val);
+          this.set_negative_zero(val);
+          this.print_op_info(this.PC-original_PC,"DEC $"+Number(this.memory_cpu[this.PC]).toString(16));
+          break;
         case 0xc8:  // INY INcrement Y
           original_PC = this.PC;
           this.cycles++;
@@ -927,16 +1036,25 @@ class NESSystem {
           break;
         case 0xcc:  // CPY abs
           original_PC = this.PC;
-          this.PC++;
           this.cycles++;
-          var abs_addr = this.load_abs_addr(this.PC)+this.X[0];
+          var abs_addr = this.get_addr_absolute();
           var imm = this.read_memory(abs_addr);
-          this.PC++;
           var diff = this.Y[0]-imm;
           this.set_flag_carry(this.Y[0]>=imm);
           this.set_flag_zero(this.Y[0]==imm);
-          this.set_flag_negative(diff&0x80);
+          this.set_flag_negative(this.Y[0]==imm?0:diff&0x80);
           this.print_op_info(this.PC-original_PC,"CPY $"+Number(abs_addr).toString(16));
+          break;
+        case 0xcd:  // CMP abs
+          original_PC = this.PC;
+          this.cycles++;
+          var abs_addr = this.get_addr_absolute();
+          var val = this.read_memory(abs_addr);
+          var diff = this.A[0]-val;
+          this.set_flag_carry(this.A[0]>=val);
+          this.set_flag_zero(this.A[0]==val);
+          this.set_flag_negative(this.A[0]==val?0:diff&0x80);
+          this.print_op_info(this.PC-original_PC,"CMP $"+Number(abs_addr).toString(16));
           break;
         case 0xce:  // DEC abs
           original_PC = this.PC;
@@ -945,7 +1063,7 @@ class NESSystem {
           var val = this.read_memory(abs_addr)-1;
           this.write_memory(abs_addr,val);
           this.set_negative_zero(val);
-          this.print_op_info(this.PC-original_PC,"INC $"+Number(abs_addr).toString(16));
+          this.print_op_info(this.PC-original_PC,"DEC $"+Number(abs_addr).toString(16));
           break;
         case 0xd0:  // BNE (Branch if not equal)
           original_PC = this.PC;
@@ -956,15 +1074,24 @@ class NESSystem {
           this.print_op_info(this.PC-original_PC,"BNE $"+(this.PC+offset+1).toString(16));
           if(this.get_flag_zero() == false) this.PC += offset;
           break;
+        case 0xd1:  // CMP indirect, Y
+          original_PC = this.PC;
+          this.cycles++;
+          var imm = this.read_indirect_y();
+          var diff = this.A[0]-imm;
+          this.set_flag_carry(this.A[0]>=imm);
+          this.set_flag_zero(this.A[0]==imm);
+          this.set_flag_negative(this.A[0]==imm?0:diff&0x80);
+          this.print_op_info(this.PC-original_PC,"CMP ($), Y");
+          break;
         case 0xd6:  // DEC zero_page,X
           original_PC = this.PC;
           this.cycles+=2;
-          this.PC++;
-          var abs_addr = this.read_memory(this.PC)+this.X[0];
+          var abs_addr = this.get_imm()+this.X[0];
           var val = this.read_memory(abs_addr)-1;
           this.write_memory(abs_addr,val);
           this.set_negative_zero(val);
-          this.print_op_info(this.PC-original_PC,"DEC $00"+Number(this.memory_cpu[this.PC]).toString(16)+",X");
+          this.print_op_info(this.PC-original_PC,"DEC $"+Number(this.memory_cpu[this.PC]).toString(16)+",X");
           break;
         case 0xd8:  // CLD
           original_PC = this.PC;
@@ -1011,10 +1138,10 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles+=4;
           var addr = this.get_imm();
-          var val = this.read_memory(addr);
+          var val = (this.read_memory(addr)+1)&0xff;
           this.write_memory(addr, val);
           this.set_negative_zero(val);
-          this.print_op_info(this.PC-original_PC,"INC $00"+Number(addr).toString(16));
+          this.print_op_info(this.PC-original_PC,"INC $"+Number(addr).toString(16));
           break;
         case 0xe8:  // INX INcrement X
           original_PC = this.PC;
@@ -1036,10 +1163,32 @@ class NESSystem {
           original_PC = this.PC;
           this.print_op_info(this.PC-original_PC,"NOP");
           break;
+        case 0xec:  // CPX abs
+          original_PC = this.PC;
+          this.cycles++;
+          var abs_addr = this.get_addr_absolute();
+          var val = this.read_memory(abs_addr);
+          var diff = this.X[0]-val;
+          this.set_flag_carry(this.X[0]>=val);
+          this.set_flag_zero(this.X[0]==val);
+          this.set_flag_negative(diff&0x80);
+          this.print_op_info(this.PC-original_PC,"CPX $"+Number(abs_addr).toString(16));
+          break;
+        case 0xed:  // SBC abs (substract with carry)
+          original_PC = this.PC;
+          this.cycles++;
+          var abs_addr = this.get_addr_absolute();
+          var val = this.read_memory(abs_addr);
+          var val = byteToUnsigned(val);
+          val ^= 0xff;
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"SBC $"+Number(abs_addr).toString(16));
+          break;
         case 0xee: // INC abs
+          original_PC = this.PC;
           this.cycles+=2;
           var abs_addr = this.get_addr_absolute();
-          var val = this.read_memory(abs_addr)+1;
+          var val = (this.read_memory(abs_addr)+1)&0xff;
           this.write_memory(abs_addr, val);
           this.set_negative_zero(val);
           this.print_op_info(this.PC-original_PC,"INC $"+Number(abs_addr).toString(16));
@@ -1052,6 +1201,14 @@ class NESSystem {
           if(offset < 0) offset -= 2;
           this.print_op_info(this.PC-original_PC,"BEQ $"+(this.PC+offset+1).toString(16));
           if(this.get_flag_zero()) this.PC += offset;
+          break;
+        case 0xf1:  // SBC indirect, Y (substract with carry)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = byteToUnsigned(this.read_indirect_y());
+          val ^= 0xff;
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"SBC ($),Y");
           break;
         case 0xf8:  // SED
           original_PC = this.PC;
@@ -1124,15 +1281,15 @@ class NESSystem {
   read_indirect_y() {
     var imm = this.get_imm();
     var load_addr = byteToUnsigned(imm);
-    var value_addr = this.load_abs_addr(load_addr) + this.Y[0];
-    return this.read_memory(value_addr);
+    var value_addr = this.load_abs_addr_zeropage(load_addr) + this.Y[0];
+    return this.read_memory(value_addr&0xffff);
   }
 
   write_indirect_y(val) {
     var imm = this.get_imm();
     var load_addr = byteToUnsigned(imm);
     var store_addr = this.load_abs_addr(load_addr) + this.Y[0];
-    this.write_memory(store_addr, val);
+    this.write_memory(store_addr&0xffff, val);
   }
 
   read_zeropage() {
