@@ -225,8 +225,8 @@ class NESSystem {
         this.cycles+=2;
         this.push_stack(this.P);
         var addr = this.PC-1;
-        this.push_stack(addr&0xff);
         this.push_stack((addr&0xff00)>>8);
+        this.push_stack(addr&0xff);
         this.PC = this.load_abs_addr(0xFFFA);
       }
 
@@ -243,7 +243,7 @@ class NESSystem {
         case 0x8:  // PHP (Push Processor status)
           var original_PC = this.PC;
           this.cycles+=2;
-          this.push_stack(this.P[0]|0x10);
+          this.push_stack(this.get_processor_status());
           this.print_op_info(this.PC-original_PC,"PHP");
           break;
         case 0x9:  // ORA imm
@@ -315,8 +315,8 @@ class NESSystem {
           this.cycles++;
           var abs_addr = this.load_abs_addr(this.PC);
           this.PC++;
-          this.push_stack((this.PC+1)&0xff);
-          this.push_stack(((this.PC+1)&0xff00)>>8);
+          this.push_stack(((this.PC)&0xff00)>>8);
+          this.push_stack((this.PC)&0xff);
           this.print_op_info(this.PC-original_PC,"JSR $"+(Number(abs_addr).toString(16)));
           this.PC = abs_addr-1;
           break;
@@ -333,7 +333,7 @@ class NESSystem {
         case 0x28:  // PLP (Pull Processor status)
           var original_PC = this.PC;
           this.cycles+=3;
-          this.P[0] = (this.pop_stack()|0x20)&0xef;
+          this.set_processor_status(this.pop_stack());
           this.print_op_info(this.PC-original_PC,"PLP");
           break;
         case 0x29:  // AND imm
@@ -388,6 +388,14 @@ class NESSystem {
           this.set_negative_zero(this.A[0]);
           this.print_op_info(this.PC-original_PC,"AND $"+Number(abs_addr).toString(16)+",X");
           break;
+        case 0x40:  // RTI (return from interrupt)
+          var original_PC = this.PC;
+          this.cycles++;
+          this.set_processor_status(this.pop_stack());
+          var abs_addr = (byteToUnsigned(this.pop_stack())) +(byteToUnsigned(this.pop_stack())<<8);
+          this.print_op_info(this.PC-original_PC,"RTI $"+Number(abs_addr).toString(16));
+          this.PC = abs_addr-1;
+          break;
         case 0x45:  // EOR zero_page (Exclusive or)
           var original_PC = this.PC;
           this.cycles+=2;
@@ -440,9 +448,9 @@ class NESSystem {
         case 0x60:  // RTS (return from subroutine)
           var original_PC = this.PC;
           this.cycles++;
-          var abs_addr = (byteToUnsigned(this.pop_stack())<<8) +byteToUnsigned(this.pop_stack());
-          this.PC = abs_addr-1;
+          var abs_addr = (byteToUnsigned(this.pop_stack())) +(byteToUnsigned(this.pop_stack())<<8);
           this.print_op_info(this.PC-original_PC,"RTS $"+Number(abs_addr).toString(16));
+          this.PC = abs_addr;
           break;
         case 0x68:  // PLA (Pull Accumulator)
           var original_PC = this.PC;
@@ -899,6 +907,13 @@ class NESSystem {
 
       console.log(addr+ data.padEnd(11) + string.padEnd(32)+this.temp_regstate);
     }
+  }
+
+  set_processor_status(val) {
+    this.P[0] = (val|0x20)&0xef;
+  }
+  get_processor_status() {
+    return this.P[0]|0x10;
   }
 }
 
