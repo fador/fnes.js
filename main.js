@@ -1481,9 +1481,8 @@ class NESSystem {
         case 0xc3:  // *DCP indirect,X (DEC+CMP)
           original_PC = this.PC;
           this.cycles+=5;
-          var val = (this.read_indirect_x()-1)&0xff;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          var val = this.read_indirect_x();
+          val = this.dec(this.temp_load_addr,val);
           this.cmp(this.A[0], val);
           this.print_op_info(this.PC-original_PC,"*DCP ($"+Number(this.temp_load_addr).toString(16)+",X)");
           break;
@@ -1504,18 +1503,15 @@ class NESSystem {
         case 0xc6:  // DEC zero_page
           original_PC = this.PC;
           this.cycles+=2;
-          var abs_addr = this.get_imm();
-          var val = this.read_memory(abs_addr)-1;
-          this.write_memory(abs_addr,val);
-          this.set_negative_zero(val);
-          this.print_op_info(this.PC-original_PC,"DEC $"+Number(this.memory_cpu[this.PC]).toString(16));
+          var val = this.read_zeropage();
+          this.dec(this.temp_load_addr,val);
+          this.print_op_info(this.PC-original_PC,"DEC $"+Number(this.temp_load_addr).toString(16));
           break;
         case 0xc7:  // *DCP zeropage (DEC+CMP)
           original_PC = this.PC;
           this.cycles+=5;
-          var val = (this.read_zeropage()-1)&0xff;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          var val = this.read_zeropage();
+          val = this.dec(this.temp_load_addr,val);
           this.cmp(this.A[0], val);
           this.print_op_info(this.PC-original_PC,"*DCP $"+Number(this.temp_load_addr).toString(16));
           break;
@@ -1559,17 +1555,15 @@ class NESSystem {
         case 0xce:  // DEC abs
           original_PC = this.PC;
           this.cycles+=5;
-          var val = this.read_absolute()-1;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          var val = this.read_absolute();
+          this.dec(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"DEC $"+Number(this.temp_load_addr).toString(16));
           break;
         case 0xcf:  // *DCP abs (DEC+CMP)
           original_PC = this.PC;
           this.cycles+=5;
-          var val = (this.read_absolute()-1)&0xff;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          var val = this.read_absolute();
+          val = this.dec(this.temp_load_addr,val);
           this.cmp(this.A[0], val);
           this.print_op_info(this.PC-original_PC,"*DCP $"+Number(this.temp_load_addr).toString(16));
           break;
@@ -1592,9 +1586,8 @@ class NESSystem {
         case 0xd3:  // *DCP indirect,Y (DEC+CMP)
           original_PC = this.PC;
           this.cycles+=5;
-          var val = (this.read_indirect_y()-1)&0xff;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          var val = this.read_indirect_y();
+          val = this.dec(this.temp_load_addr,val);
           this.cmp(this.A[0], val);
           this.print_op_info(this.PC-original_PC,"*DCP ($"+Number(this.temp_load_addr).toString(16)+"),Y");
           break;
@@ -1614,17 +1607,15 @@ class NESSystem {
         case 0xd6:  // DEC zero_page,X
           original_PC = this.PC;
           this.cycles+=2;
-          var val = this.read_zeropage_x()-1;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          var val = this.read_zeropage_x();
+          this.dec(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"DEC $"+Number(this.temp_load_addr).toString(16)+",X");
           break;
         case 0xd7:  // *DCP zero_page,X (DEC+CMP)
           original_PC = this.PC;
           this.cycles+=5;
-          var val = (this.read_zeropage_x()-1)&0xff;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          var val = this.read_zeropage_x();
+          val = this.dec(this.temp_load_addr,val);
           this.cmp(this.A[0], val);
           this.print_op_info(this.PC-original_PC,"*DCP $"+Number(this.temp_load_addr).toString(16)+",X");
           break;
@@ -1643,9 +1634,8 @@ class NESSystem {
         case 0xdb:  // *DCP abs,Y (DEC+CMP)
           original_PC = this.PC;
           this.cycles+=5;
-          var val = (this.read_absolute_y()-1)&0xff;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          var val = this.read_absolute_y();
+          val = this.dec(this.temp_load_addr,val);
           this.cmp(this.A[0], val);
           this.print_op_info(this.PC-original_PC,"*DCP $"+Number(this.temp_load_addr).toString(16)+",Y");
           break;
@@ -1659,17 +1649,15 @@ class NESSystem {
         case 0xde:  // DEC abs,X
           original_PC = this.PC;
           this.cycles+=5;
-          var val = this.read_absolute_x()-1;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          var val = this.read_absolute_x();
+          this.dec(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"DEC $"+Number(this.temp_load_addr).toString(16)+",X");
           break;
         case 0xdf:  // *DCP abs,X (DEC+CMP)
           original_PC = this.PC;
           this.cycles+=5;
-          var val = (this.read_absolute_x()-1)&0xff;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          var val = this.read_absolute_x();
+          val = this.dec(this.temp_load_addr,val);
           this.cmp(this.A[0], val);
           this.print_op_info(this.PC-original_PC,"*DCP $"+Number(this.temp_load_addr).toString(16)+",X");
           break;
@@ -2032,6 +2020,13 @@ class NESSystem {
     this.set_flag_carry((val&1));
     val = (byteToUnsigned(val)>>1)+(carry?0x80:0);
     this.write_memory(addr, val);
+    this.set_negative_zero(val);
+    return val;
+  }
+
+  dec(addr, inval) {
+    var val = (inval-1)&0xff;
+    this.write_memory(addr,val);
     this.set_negative_zero(val);
     return val;
   }
