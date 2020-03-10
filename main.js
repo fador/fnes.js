@@ -476,6 +476,15 @@ class NESSystem {
           this.set_negative_zero(this.A[0]);
           this.print_op_info(this.PC-original_PC,"AND ($"+(Number(this.temp_load_addr).toString(16))+",X)");
           break;
+        case 0x23:  // *RLA indirect,X (ROL+AND)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_indirect_x();
+          val=this.rol(this.temp_load_addr, val);
+          this.A[0] = byteToUnsigned(this.A[0]) & val;
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*RLA $"+(Number(this.temp_load_addr).toString(16)));
+          break;
         case 0x24:  // BIT zeropage
           original_PC = this.PC;
           this.cycles+=2;
@@ -499,6 +508,15 @@ class NESSystem {
           var val = this.read_zeropage();
           this.rol(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROL $"+(Number(this.temp_load_addr).toString(16)));
+          break;
+        case 0x27:  // *RLA zeropage (ROL+AND)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_zeropage();
+          val=this.rol(this.temp_load_addr, val);
+          this.A[0] = byteToUnsigned(this.A[0]) & val;
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*RLA $"+(Number(this.temp_load_addr).toString(16)));
           break;
         case 0x28:  // PLP (Pull Processor status)
           original_PC = this.PC;
@@ -547,6 +565,15 @@ class NESSystem {
           this.rol(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROL $"+(Number(this.temp_load_addr).toString(16)));
           break;
+        case 0x2f:  // *RLA abs (ROL+AND)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_absolute();
+          val=this.rol(this.temp_load_addr, val);
+          this.A[0] = byteToUnsigned(this.A[0]) & val;
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*RLA $"+(Number(this.temp_load_addr).toString(16)));
+          break;
         case 0x30:  // BMI (Branch on MInus)
           original_PC = this.PC;
           this.cycles++;
@@ -561,6 +588,15 @@ class NESSystem {
           this.A[0] = byteToUnsigned(this.A[0]) & this.read_indirect_y();
           this.set_negative_zero(this.A[0]);
           this.print_op_info(this.PC-original_PC,"AND ($"+(Number(this.temp_load_addr).toString(16))+"),Y");
+          break;
+        case 0x33:  // *RLA indirect,Y (ROL+AND)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_indirect_y();
+          val=this.rol(this.temp_load_addr, val);
+          this.A[0] = byteToUnsigned(this.A[0]) & val;
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*RLA ($"+(Number(this.temp_load_addr).toString(16))+"),Y");
           break;
         case 0x34:  // *NOP zeropage,X
           original_PC = this.PC;
@@ -582,6 +618,15 @@ class NESSystem {
           this.rol(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROL $"+(Number(this.temp_load_addr).toString(16))+",X");
           break;
+        case 0x37:  // *RLA zeropage,X (ROL+AND)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_zeropage_x();
+          val=this.rol(this.temp_load_addr, val);
+          this.A[0] = byteToUnsigned(this.A[0]) & val;
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*RLA $"+(Number(this.temp_load_addr).toString(16))+",X");
+          break;
         case 0x38:  // SEC (set Carry)
           original_PC = this.PC;
           this.cycles++;
@@ -595,6 +640,15 @@ class NESSystem {
           this.A[0] = byteToUnsigned(this.A[0]) & val;
           this.set_negative_zero(this.A[0]);
           this.print_op_info(this.PC-original_PC,"AND $"+(Number(abs_addr).toString(16)));
+          break;
+        case 0x3b:  // *RLA abs,Y (ROL+AND)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_absolute_y();
+          val=this.rol(this.temp_load_addr, val);
+          this.A[0] = byteToUnsigned(this.A[0]) & val;
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*RLA $"+(Number(this.temp_load_addr).toString(16))+",Y");
           break;
         case 0x3d:  // AND abs,X
           original_PC = this.PC;
@@ -613,6 +667,15 @@ class NESSystem {
           var val = this.read_absolute_x();
           this.rol(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROL $"+(Number(this.temp_load_addr).toString(16))+",X");
+          break;
+        case 0x3f:  // *RLA abs,X (ROL+AND)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_absolute_x();
+          val=this.rol(this.temp_load_addr, val);
+          this.A[0] = byteToUnsigned(this.A[0]) & val;
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*RLA $"+(Number(this.temp_load_addr).toString(16))+",X");
           break;
         case 0x40:  // RTI (return from interrupt)
           original_PC = this.PC;
