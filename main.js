@@ -497,11 +497,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_zeropage();
-          var carry = this.get_flag_carry();
-          this.set_flag_carry((val&0x80)?1:0);
-          val = ((byteToUnsigned(val)<<1)+carry)&0xff;
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.rol(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROL $"+(Number(this.temp_load_addr).toString(16)));
           break;
         case 0x28:  // PLP (Pull Processor status)
@@ -548,11 +544,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_absolute();
-          var carry = this.get_flag_carry();
-          this.set_flag_carry((val&0x80)?1:0);
-          val = ((byteToUnsigned(val)<<1)+carry)&0xff;
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.rol(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROL $"+(Number(this.temp_load_addr).toString(16)));
           break;
         case 0x30:  // BMI (Branch on MInus)
@@ -587,11 +579,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_zeropage_x();
-          var carry = this.get_flag_carry();
-          this.set_flag_carry((val&0x80)?1:0);
-          val = ((byteToUnsigned(val)<<1)+carry)&0xff;
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.rol(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROL $"+(Number(this.temp_load_addr).toString(16))+",X");
           break;
         case 0x38:  // SEC (set Carry)
@@ -623,11 +611,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_absolute_x();
-          var carry = this.get_flag_carry();
-          this.set_flag_carry((val&0x80)?1:0);
-          val = ((byteToUnsigned(val)<<1)+carry)&0xff;
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.rol(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROL $"+(Number(this.temp_load_addr).toString(16))+",X");
           break;
         case 0x40:  // RTI (return from interrupt)
@@ -1877,6 +1861,15 @@ class NESSystem {
     this.set_flag_carry((val&0x80)?1:0);
     val = (byteToUnsigned(val)<<1)&0xff;
     this.write_memory(addr,val);
+    this.set_negative_zero(val);
+    return val;
+  }
+
+  rol(addr, val) {
+    var carry = this.get_flag_carry();
+    this.set_flag_carry((val&0x80)?1:0);
+    val = ((byteToUnsigned(val)<<1)+carry)&0xff;
+    this.write_memory(addr, val);
     this.set_negative_zero(val);
     return val;
   }
