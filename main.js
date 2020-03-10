@@ -693,6 +693,14 @@ class NESSystem {
           this.set_negative_zero(val);
           this.print_op_info(this.PC-original_PC,"EOR ($"+Number(this.temp_load_addr).toString(16)+",X)");
           break;
+        case 0x43:  // *SRE indirect,X (LSR+EOR)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_indirect_x();
+          this.A[0] = this.lsr(this.temp_load_addr,val)^this.A[0];
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*SRE ($"+Number(this.temp_load_addr).toString(16)+",X)");
+          break;
         case 0x44:  // *NOP zeropage
           original_PC = this.PC;
           this.cycles+=2;
@@ -713,6 +721,14 @@ class NESSystem {
           var val = this.read_zeropage();
           this.lsr(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"LSR $"+Number(this.temp_load_addr).toString(16));
+          break;
+        case 0x47:  // *SRE zeropage (LSR+EOR)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_zeropage();
+          this.A[0] = this.lsr(this.temp_load_addr,val)^this.A[0];
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*SRE $"+Number(this.temp_load_addr).toString(16));
           break;
         case 0x48:  // PHA (Push Accumulator)
           original_PC = this.PC;
@@ -758,6 +774,14 @@ class NESSystem {
           this.lsr(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"LSR $"+Number(this.temp_load_addr).toString(16));
           break;
+        case 0x4f:  // *SRE abs (LSR+EOR)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_absolute();
+          this.A[0] = this.lsr(this.temp_load_addr,val)^this.A[0];
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*SRE $"+Number(this.temp_load_addr).toString(16));
+          break;
         case 0x50:  // BVC (Branch on oVerflow Clear)
           original_PC = this.PC;
           this.PC++;
@@ -774,6 +798,14 @@ class NESSystem {
           this.A[0] = val;
           this.set_negative_zero(val);
           this.print_op_info(this.PC-original_PC,"EOR ($"+Number(this.temp_load_addr).toString(16)+"),Y");
+          break;
+        case 0x53:  // *SRE indirect,Y (LSR+EOR)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_indirect_y();
+          this.A[0] = this.lsr(this.temp_load_addr,val)^this.A[0];
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*SRE ($"+Number(this.temp_load_addr).toString(16)+"),Y");
           break;
         case 0x54:  // *NOP zeropage,X
           original_PC = this.PC;
@@ -796,6 +828,14 @@ class NESSystem {
           this.lsr(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"LSR "+Number(this.temp_load_addr).toString(16)+",X");
           break;
+        case 0x57:  // *SRE zeropage,X (LSR+EOR)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_zeropage_x();
+          this.A[0] = this.lsr(this.temp_load_addr,val)^this.A[0];
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*SRE $"+Number(this.temp_load_addr).toString(16)+",X");
+          break;
         case 0x59:  // EOR abs,Y (Exclusive or)
           original_PC = this.PC;
           this.cycles+=3;
@@ -803,6 +843,14 @@ class NESSystem {
           this.A[0] = val;
           this.set_negative_zero(val);
           this.print_op_info(this.PC-original_PC,"EOR $"+Number(this.temp_load_addr).toString(16)+",Y");
+          break;
+        case 0x5b:  // *SRE abs,Y (LSR+EOR)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_absolute_y();
+          this.A[0] = this.lsr(this.temp_load_addr,val)^this.A[0];
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*SRE $"+Number(this.temp_load_addr).toString(16)+",Y");
           break;
         case 0x5d:  // EOR abs,X (Exclusive or)
           original_PC = this.PC;
@@ -818,6 +866,14 @@ class NESSystem {
           var val = this.read_absolute_x();
           this.lsr(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"LSR $"+Number(this.temp_load_addr).toString(16)+",X");
+          break;
+        case 0x5f:  // *SRE abs,X (LSR+EOR)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_absolute_x();
+          this.A[0] = this.lsr(this.temp_load_addr,val)^this.A[0];
+          this.set_negative_zero(this.A[0]);
+          this.print_op_info(this.PC-original_PC,"*SRE $"+Number(this.temp_load_addr).toString(16)+",X");
           break;
         case 0x60:  // RTS (return from subroutine)
           original_PC = this.PC;
@@ -1930,6 +1986,7 @@ class NESSystem {
     val = byteToUnsigned(val)>>1;
     this.write_memory(addr, val);
     this.set_negative_zero(val);
+    return val;
   }
 }
 
