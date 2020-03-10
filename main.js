@@ -906,11 +906,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_zeropage();
-          var carry = this.get_flag_carry();
-          this.set_flag_carry((val&1));
-          val = (byteToUnsigned(val)>>1)+(carry?0x80:0);
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.ror(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROR $"+(this.temp_load_addr).toString(16));
           break;
         case 0x68:  // PLA (Pull Accumulator)
@@ -959,11 +955,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_absolute();
-          var carry = this.get_flag_carry();
-          this.set_flag_carry((val&1));
-          val = (byteToUnsigned(val)>>1)+(carry?0x80:0);
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.ror(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROR $"+(this.temp_load_addr).toString(16));
           break;
         case 0x70:  // BVS (Branch on oVerflow Set)
@@ -999,11 +991,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_zeropage_x();
-          var carry = this.get_flag_carry();
-          this.set_flag_carry((val&1));
-          val = (byteToUnsigned(val)>>1)+(carry?0x80:0);
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.ror(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROR $"+(this.temp_load_addr).toString(16)+",X");
           break;
         case 0x78:  // SEI
@@ -1026,14 +1014,8 @@ class NESSystem {
         case 0x7e:  // ROR abs,X
           original_PC = this.PC;
           this.cycles+=3;
-          var abs_addr = this.get_addr_absolute()+this.X[0];
-          var val = this.read_memory(abs_addr);
-          var carry = this.get_flag_carry();
-          this.set_flag_carry(val&1);
-          val = byteToUnsigned(val) >> 1;
-          val = val + (carry?0x80:0);
-          this.write_memory(abs_addr, val);
-          this.set_negative_zero(val);
+          var val = this.read_absolute_x();
+          this.ror(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROR $"+Number(abs_addr).toString(16)+",X");
           break;
         case 0x80:  // *NOP imm
@@ -1984,6 +1966,15 @@ class NESSystem {
   lsr(addr, val) {
     this.set_flag_carry(val&1);
     val = byteToUnsigned(val)>>1;
+    this.write_memory(addr, val);
+    this.set_negative_zero(val);
+    return val;
+  }
+
+  ror(addr, val) {
+    var carry = this.get_flag_carry();
+    this.set_flag_carry((val&1));
+    val = (byteToUnsigned(val)>>1)+(carry?0x80:0);
     this.write_memory(addr, val);
     this.set_negative_zero(val);
     return val;
