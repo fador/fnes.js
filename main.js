@@ -889,6 +889,14 @@ class NESSystem {
           this.adc(val);
           this.print_op_info(this.PC-original_PC,"ADC ($"+(val).toString(16)+",X)");
           break;
+        case 0x63:  // *RRA indirect,X (ROR+ADC)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_indirect_x();
+          val = this.ror(this.temp_load_addr, val);
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"*RRA ($"+(this.temp_load_addr).toString(16)+",X)");
+          break;
         case 0x64:  // *NOP zeropage
           original_PC = this.PC;
           this.cycles+=2;
@@ -908,6 +916,14 @@ class NESSystem {
           var val = this.read_zeropage();
           this.ror(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROR $"+(this.temp_load_addr).toString(16));
+          break;
+        case 0x67:  // *RRA zeropage (ROR+ADC)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_zeropage();
+          val = this.ror(this.temp_load_addr, val);
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"*RRA $"+(this.temp_load_addr).toString(16));
           break;
         case 0x68:  // PLA (Pull Accumulator)
           original_PC = this.PC;
@@ -958,6 +974,14 @@ class NESSystem {
           this.ror(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROR $"+(this.temp_load_addr).toString(16));
           break;
+        case 0x6f:  // *RRA abs (ROR+ADC)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_absolute();
+          val = this.ror(this.temp_load_addr, val);
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"*RRA $"+(this.temp_load_addr).toString(16));
+          break;
         case 0x70:  // BVS (Branch on oVerflow Set)
           original_PC = this.PC;
           this.PC++;
@@ -973,6 +997,14 @@ class NESSystem {
           var val = this.read_indirect_y();
           this.adc(val);
           this.print_op_info(this.PC-original_PC,"ADC ($"+(val).toString(16)+"),Y");
+          break;
+        case 0x73:  // *RRA indirect,Y (ROR+ADC)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_indirect_y();
+          val = this.ror(this.temp_load_addr, val);
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"*RRA ($"+(this.temp_load_addr).toString(16)+"),Y");
           break;
         case 0x74:  // *NOP zeropage,X
           original_PC = this.PC;
@@ -994,6 +1026,14 @@ class NESSystem {
           this.ror(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROR $"+(this.temp_load_addr).toString(16)+",X");
           break;
+        case 0x77:  // *RRA zeropage,X (ROR+ADC)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_zeropage_x();
+          val = this.ror(this.temp_load_addr, val);
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"*RRA $"+(this.temp_load_addr).toString(16)+",X");
+          break;
         case 0x78:  // SEI
           original_PC = this.PC;
           this.P[0] = (this.P[0] | 2);
@@ -1004,6 +1044,14 @@ class NESSystem {
           this.cycles+=3;
           this.adc(this.read_absolute_y());
           this.print_op_info(this.PC-original_PC,"ADC $"+(this.temp_load_addr).toString(16));
+          break;
+        case 0x7b:  // *RRA abs,Y (ROR+ADC)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_absolute_y();
+          val = this.ror(this.temp_load_addr, val);
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"*RRA $"+(this.temp_load_addr).toString(16)+",Y");
           break;
         case 0x7d:  // ADC abs,X (add with carry)
           original_PC = this.PC;
@@ -1017,6 +1065,14 @@ class NESSystem {
           var val = this.read_absolute_x();
           this.ror(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ROR $"+Number(abs_addr).toString(16)+",X");
+          break;
+        case 0x7f:  // *RRA abs,X (ROR+ADC)
+          original_PC = this.PC;
+          this.cycles++;
+          var val = this.read_absolute_x();
+          val = this.ror(this.temp_load_addr, val);
+          this.adc(val);
+          this.print_op_info(this.PC-original_PC,"*RRA $"+(this.temp_load_addr).toString(16)+",X");
           break;
         case 0x80:  // *NOP imm
           original_PC = this.PC;
