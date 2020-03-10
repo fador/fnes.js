@@ -261,13 +261,9 @@ class NESSystem {
         case 0x06:  // ASL zeropage (arithmetic shift left), accumulator
           original_PC = this.PC;
           this.cycles++;
-          var addr = this.get_imm();
-          var val = this.read_memory(addr);
-          this.set_flag_carry((val&0x80)?1:0);
-          val = (byteToUnsigned(val)<<1)&0xff;
-          this.write_memory(addr,val);
-          this.set_negative_zero(val);
-          this.print_op_info(this.PC-original_PC,"ASL $00");
+          var val = this.read_zeropage();
+          this.asl(this.temp_load_addr, val);
+          this.print_op_info(this.PC-original_PC,"ASL $"+Number(this.temp_load_addr).toString(16));
           break;
         case 0x8:  // PHP (Push Processor status)
           original_PC = this.PC;
@@ -309,10 +305,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_absolute();
-          this.set_flag_carry((val&0x80)?1:0);
-          val = (byteToUnsigned(val)<<1)&0xff;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          this.asl(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ASL $"+Number(this.temp_load_addr).toString(16));
           break;
         case 0x10:  // BPL (Branch if positive)
@@ -350,10 +343,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_zeropage_x();
-          this.set_flag_carry((val&0x80)?1:0);
-          val = (byteToUnsigned(val)<<1)&0xff;
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.asl(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ASL $"+Number(this.temp_load_addr).toString(16)+",X");
           break;
         case 0x18:  // CLC (clear carry)
@@ -405,10 +395,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_absolute_x();
-          this.set_flag_carry((val&0x80)?1:0);
-          val = (byteToUnsigned(val)<<1)&0xff;
-          this.write_memory(this.temp_load_addr,val);
-          this.set_negative_zero(val);
+          this.asl(this.temp_load_addr, val);
           this.print_op_info(this.PC-original_PC,"ASL $"+Number(this.temp_load_addr).toString(16)+",X");
           break;
         case 0x20:  // JSR (Jump to subroutine)
@@ -1822,6 +1809,13 @@ class NESSystem {
   read_zeropage_y() {
     this.temp_load_addr = (this.get_imm()+this.Y[0])&0xff;
     return this.read_memory(this.temp_load_addr);
+  }
+
+  asl(addr, val) {
+    this.set_flag_carry((val&0x80)?1:0);
+    val = (byteToUnsigned(val)<<1)&0xff;
+    this.write_memory(addr,val);
+    this.set_negative_zero(val);
   }
 }
 
