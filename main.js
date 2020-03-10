@@ -711,10 +711,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_zeropage();
-          this.set_flag_carry(val&1);
-          val = byteToUnsigned(val)>>1;
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.lsr(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"LSR $"+Number(this.temp_load_addr).toString(16));
           break;
         case 0x48:  // PHA (Push Accumulator)
@@ -758,10 +755,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_absolute();
-          this.set_flag_carry(val&1);
-          val = byteToUnsigned(val)>>1;
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.lsr(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"LSR $"+Number(this.temp_load_addr).toString(16));
           break;
         case 0x50:  // BVC (Branch on oVerflow Clear)
@@ -799,10 +793,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_zeropage_x();
-          this.set_flag_carry(val&1);
-          val = byteToUnsigned(val)>>1;
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.lsr(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"LSR "+Number(this.temp_load_addr).toString(16)+",X");
           break;
         case 0x59:  // EOR abs,Y (Exclusive or)
@@ -825,10 +816,7 @@ class NESSystem {
           original_PC = this.PC;
           this.cycles++;
           var val = this.read_absolute_x();
-          this.set_flag_carry(val&1);
-          val = byteToUnsigned(val>>1);
-          this.write_memory(this.temp_load_addr, val);
-          this.set_negative_zero(val);
+          this.lsr(this.temp_load_addr,val);
           this.print_op_info(this.PC-original_PC,"LSR $"+Number(this.temp_load_addr).toString(16)+",X");
           break;
         case 0x60:  // RTS (return from subroutine)
@@ -1935,6 +1923,13 @@ class NESSystem {
     this.write_memory(addr, val);
     this.set_negative_zero(val);
     return val;
+  }
+
+  lsr(addr, val) {
+    this.set_flag_carry(val&1);
+    val = byteToUnsigned(val)>>1;
+    this.write_memory(addr, val);
+    this.set_negative_zero(val);
   }
 }
 
