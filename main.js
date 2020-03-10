@@ -97,13 +97,6 @@ class NESSystem {
     return true;
   }
 
-  clip_y() {
-    //this.Y[0] = this.Y[0]&0xff;
-  }
-  clip_x() {
-    //this.X[0] = this.X[0]&0xff;
-  }
-
   get_flag_zero() { return !!(this.P[0] & 0x2); }
   get_flag_carry() { return !!(this.P[0] & 0x1); }
   get_flag_negative() { return !!(this.P[0] & 0x80); }
@@ -1125,7 +1118,6 @@ class NESSystem {
           this.cycles++;
           this.Y[0] = this.Y[0] - 1;
           this.set_negative_zero(this.Y[0]);
-          this.clip_y();
           this.print_op_info(this.PC-original_PC,"DEY");
           break;
         case 0x8a:  // TXA (Transfer X to A)
@@ -1520,7 +1512,6 @@ class NESSystem {
           this.cycles++;
           this.Y[0] = this.Y[0] + 1;
           this.set_negative_zero(this.Y[0]);
-          this.clip_y();
           this.print_op_info(this.PC-original_PC,"INY");
           break;
         case 0xc9:  // CMP imm
@@ -1535,7 +1526,6 @@ class NESSystem {
           this.cycles++;
           this.X[0] = this.X[0] - 1;
           this.set_negative_zero(this.X[0]);
-          this.clip_x();
           this.print_op_info(this.PC-original_PC,"DEX");
           break;
         case 0xcc:  // CPY abs
@@ -1722,7 +1712,6 @@ class NESSystem {
           this.cycles++;
           this.X[0] = this.X[0] + 1;
           this.set_negative_zero(this.X[0]);
-          this.clip_x();
           this.print_op_info(this.PC-original_PC,"INX");
           break;
         case 0xe9:  // SBC imm (substract with carry)
