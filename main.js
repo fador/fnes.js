@@ -8,13 +8,10 @@ class NESHeader {
     this.prg_size = 0;
     this.chr_size = 0;
     this.pal = false;
-
-
   }
 }
 
 function byteToSigned(val) {
-
   if(val&0x80) val = -((~val&0xff)-1);
   return val;
 }
@@ -28,25 +25,36 @@ const DEBUG_MEMORY = 1<<1;
 
 const PPUCTRL = 0x2000;
 const PPUSTATUS = 0x2002;
+const OAMADDR = 0x2003;
+const OAMDATA = 0x2004;
+const PPUSCROLL = 0x2005;
+const PPUADDR = 0x2006;
+const PPUDATA = 0x2007;
 const PPU_CYCLES_PER_LINE = 341;
 const PPU_CYCLES_PER_FRAME = 89342;
 
 class NESSystem {
 
+
   constructor() {
 
     this.cycles_ppu_this_frame = 0;
     this.cycles_this_line = 0;
-    this.ppu_scanline = 0;
-    this.ppu_off_x = 0;
-    this.ppu_off_y = 0;
+    this.ppu_scanline = -1;
+    this.ppu_scroll_x = 0;
+    this.ppu_scroll_y = 0;
+    this.ppu_scroll_toggle = 0;
     this.ppu_render = false;
     this.cycles_ppu = 0;
+    this.ppu_addr_toggle=0;
+    this.vram_addr=0;
+    this.oam = Buffer.alloc(0xff);
+    this.oamaddr = 0;
 
     this.nmi = false;
     this.bytes_read = 0;
     this.bytes_written = 0;
-    this.debug = DEBUG_OPS;
+    this.debug = 0;//DEBUG_OPS;
     this.cycles = 0;
     this.ops = 0;
     this.PC = 0x8000;
@@ -83,13 +91,40 @@ class NESSystem {
 
   read_memory(addr) {
     this.bytes_read++;
+    if(addr == OAMDATA) {
+      return this.oam[this.oamaddr];
+    } else if(addr == PPUDATA) {
+      return this.memory_ppu[this.vram_addr++];
+    }
+
     return this.memory_cpu[addr];
   }
   write_memory(addr, byte) {
     if(addr == PPUCTRL) {
       console.log("Writing byte "+Number(byte).toString(16)+" to PPU control");
-    }
-    if(addr == 0x4014) {
+    } else if(addr == PPUSCROLL) {
+      this.ppu_scroll_toggle = this.ppu_scroll_toggle?0:1;
+      if(this.ppu_scroll_toggle) this.ppu_scroll_x = byte;
+      else this.ppu_scroll_y = byte;
+
+      if(!this.ppu_scroll_toggle) {
+        console.log("PPUSCROLL: "+this.ppu_scroll_x+","+this.ppu_scroll_y);
+      }
+    } else if(addr == PPUADDR) {
+      this.ppu_addr_toggle=this.ppu_addr_toggle?0:1;
+      this.vram_addr = (this.vram_addr&(this.ppu_addr_toggle?0x00ff:0xff00))|(byteToUnsigned(byte)<<(this.ppu_addr_toggle?8:0));
+      if(!this.ppu_addr_toggle) {
+        console.log("PPUADDR: 0x"+Number(this.vram_addr).toString(16));
+      }
+    } else if(addr == PPUDATA) {
+      this.memory_ppu[this.vram_addr++] = byte;
+    } else if(addr == OAMADDR) {
+      this.oamaddr = byte;
+    } else if(addr == OAMDATA) {
+      this.oam[(this.oamaddr++)&0xff] = byte;
+    } else if(addr >= 0x2001 && addr <= 0x2007) {
+      console.log("Writing byte "+Number(byte).toString(16)+" to "+Number(addr).toString(16));
+    } else if(addr == 0x4014) {
       console.log("DMA Write: "+Number(byte).toString(16));
     }
     this.bytes_written++;
@@ -185,6 +220,7 @@ class NESSystem {
     data.copy(this.memory_cpu, this.PC, 16, 16+this.header.prg_size);
     data.copy(this.memory_ppu, 0x0000, 16+this.header.prg_size, this.header.chr_size);
 
+    this.PC+=4;
     console.log("PRG ROM: "+this.header.prg_size);
     console.log("CHR ROM: "+this.header.chr_size);
     return true;
@@ -193,7 +229,7 @@ class NESSystem {
   run_ppu() {
     while(this.cycles_ppu < this.cycles*3) {
 
-      if(this.cycles_ppu_this_frame<PPU_CYCLES_PER_LINE*20) {
+      if(this.ppu_scanline>=240) {
         this.memory_cpu[PPUSTATUS] |= 0x80;
         if(this.memory_cpu[PPUCTRL]&0x80) {
           this.memory_cpu[PPUCTRL] &= 0x7f;
@@ -205,8 +241,14 @@ class NESSystem {
       this.cycles_ppu++;
       this.cycles_ppu_this_frame++;
       this.cycles_this_line++;
-      if(this.cycles_this_line == PPU_CYCLES_PER_LINE) this.cycles_this_line = 0;
-      if(this.cycles_ppu_this_frame == 89342) this.cycles_ppu_this_frame = 0;
+      if(this.cycles_this_line == PPU_CYCLES_PER_LINE) {
+        this.cycles_this_line = 0;
+        this.ppu_scanline++;
+        if(this.ppu_scanline==261) {
+          this.ppu_scanline=-1;
+          this.cycles_ppu_this_frame=0;
+        }
+      }
     }
 
     return 1;
@@ -221,10 +263,10 @@ class NESSystem {
         console.log("NMI");
         this.nmi = false;
         this.cycles+=2;
-        this.push_stack(this.P);
-        var addr = this.PC-1;
+        var addr = this.PC;
         this.push_stack((addr&0xff00)>>8);
         this.push_stack(addr&0xff);
+        this.push_stack(this.P);
         this.PC = this.load_abs_addr(0xFFFA);
       }
       var original_PC;
