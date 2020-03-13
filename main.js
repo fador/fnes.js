@@ -1,5 +1,61 @@
 var fs = require('fs');
+const NS = require('node-sdl2');
+const SDL = NS.require('SDL');
+const SDL_render = NS.require('SDL_render');
+const SDL_pixels = NS.require('SDL_pixels');
 
+// Test app begin
+const App = NS.createAppWithFlags(SDL.SDL_InitFlags.SDL_INIT_EVERYTHING);
+
+// Test window begin
+const Window = NS.window;
+const win = new Window({
+  title: 'fNES.js',
+  w: 256 * 2,
+  h: 256 * 2,
+});
+win.on('close', function() {
+  App.quit()
+});
+win.on('keydown', (key) => {
+  if (key.scancode === 41)  // Escape
+    return App.quit()
+});
+
+
+// Texture
+const WIDTH = 256, HEIGHT = 256;
+const texture = win.render.createTexture(
+  WIDTH, HEIGHT, SDL_pixels.PixelFormat.ABGR8888, SDL_render.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING);
+const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
+const pitch = WIDTH * 4;
+
+function draw() {
+
+  for (let i = 0; i < HEIGHT; ++i) {
+    for (let j = 0; j < WIDTH; ++j) {
+      const index = (i * WIDTH + j) * 4;
+      const memory_idx = i+0x2000+(Math.floor(j/8))*256+(Math.floor(i/8))*8;
+      var byte = (byteToUnsigned(system.memory_ppu[memory_idx]>>(j%8))&1)?66:0;
+      byte += (byteToUnsigned(system.memory_ppu[memory_idx+8]>>(j%8))&1)?66:0;
+      pixels[index]     = byte;
+      pixels[index + 1] = byte;
+      pixels[index + 2] = byte;
+      pixels[index + 3] = 255;
+    }
+  }
+
+  texture.update(null, pixels, pitch);
+  win.render.copy(texture, null, null);
+  win.render.present();
+}
+
+
+class Graphics {
+  constructor() {
+
+  }
+}
 
 class NESHeader {
 
@@ -2065,22 +2121,28 @@ class NESSystem {
 
 var system = new NESSystem();
 
+/*
 process.on('SIGINT', function() {
   console.log("Caught interrupt signal");
   system.debug();
   process.exit(0);
 });
+*/
 
-
-function main()
+async function main()
 {
 
   var binaryData = fs.readFileSync('./test/nestest.nes');
   if(system.parseHeader(binaryData)) {
     var running = true;
+    var tempcycles = 0;
     while(running) {
       if(!system.run()) break;
       if(!system.run_ppu()) break;
+      if(system.cycles-tempcycles > 100000) {
+        tempcycles = system.cycles;
+        await new Promise(resolve => setTimeout(resolve, 1));
+      }
     }
     system.debug_print();
   } else {
@@ -2090,6 +2152,8 @@ function main()
 
 }
 
-
+var graphics = new Graphics();
 
 main();
+
+setInterval(draw, 10);
