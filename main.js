@@ -7,6 +7,10 @@ const SDL_pixels = NS.require('SDL_pixels');
 // Test app begin
 const App = NS.createAppWithFlags(SDL.SDL_InitFlags.SDL_INIT_EVERYTHING);
 
+var render_sprite = false;
+var debugMode = false;
+var Joy1data = 0;
+
 // Test window begin
 const Window = NS.window;
 const win = new Window({
@@ -20,6 +24,39 @@ win.on('close', function() {
 win.on('keydown', (key) => {
   if (key.scancode === 41)  // Escape
     return App.quit()
+  if(key.scancode === 44) { // Space
+    render_sprite = render_sprite?false:true
+    console.log("Render Sprite = "+render_sprite);
+  }
+  if(key.scancode === 7) { // 'D'
+    debugMode = debugMode?false:true
+    console.log("Debug mode = "+debugMode);
+  }
+  if(key.scancode === 40) { // Start
+    Joy1data = (1<<3);
+    console.log("Start");
+  }
+  if(key.scancode === 79) { // Right
+    Joy1data = (1<<7);
+    console.log("Right");
+  }
+  if(key.scancode === 80) { // Left
+    Joy1data = (1<<6);
+    console.log("Left");
+  }
+  if(key.scancode === 81) { // Down
+    Joy1data = (1<<5);
+    console.log("Down");
+  }
+  if(key.scancode === 82) { // Up
+    Joy1data = (1<<4);
+    console.log("Up");
+  }
+});
+
+win.on('keyup', (key) => {
+  Joy1data = 0;
+
 });
 
 
@@ -30,8 +67,9 @@ const texture = win.render.createTexture(
 const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
 const pitch = WIDTH * 4;
 
+var tile = Buffer.alloc(8*8);
+
 function getTile(index, table) {
-  var tile = Buffer.alloc(8*8);
   var base_index = table + index*16;
   for(var y = 0; y < 8; y++) {
     for (var x = 0; x < 8; x++) {
@@ -43,43 +81,79 @@ function getTile(index, table) {
   return tile;
 }
 
+function getColor(pixel,palette,sprite) {
+  return system.memory_ppu[0x3F00+pixel+(palette<<2)+(sprite<<4)];
+}
+
 function draw() {
 
-  for(var i = 0; i < 256;i+=4) {
-    var y_pos = system.oam[i];
-    var sprite = system.oam[i+1];
-    var x_pos = system.oam[i+3];
+  if(!render_sprite) {
+    var oam=false;
+    if(oam) {
+      for (var i = 0; i < 256; i += 4) {
+        var y_pos = system.oam[i];
+        var sprite = system.oam[i + 1];
+        var x_pos = system.oam[i + 3];
 
-    const spriteTable = 0x0000;
-    for(var y = 0; y < 8; y++) {
-      for (var x = 0; x < 8; x++) {
-        var byte = ((system.memory_ppu[spriteTable+sprite*16+y]>>(7-x))&1)?66:0;
-        byte += ((system.memory_ppu[spriteTable+sprite*16+y+8]>>(7-x))&1)?128:0;
-        const index = ((y_pos+y)*WIDTH+(x_pos+x))*4;
-        pixels[index]     = byte;
-        pixels[index + 1] = byte;
-        pixels[index + 2] = byte;
-        pixels[index + 3] = 255;
+        const spriteTable = 0x2000;
+
+        var tile = getTile(sprite, spriteTable);
+        for (var y = 0; y < 8; y++) {
+          for (var x = 0; x < 8; x++) {
+            var index = ((y_pos + y) * 256 + (x_pos) + x) * 4;
+            var pixel = tile[y * 8 + x] * 128;
+            pixels[index] = pixel;
+            pixels[index + 1] = pixel;
+            pixels[index + 2] = pixel;
+            pixels[index + 3] = 255;
+          }
+        }
+      }
+    } else {
+      var tiles = 32*30;
+      const tileTable = 0x2000;
+      const palette=tileTable+0x3C0;
+
+      for (let i = 0; i < tiles; ++i) {
+        var sprite = system.memory_ppu[tileTable+i];
+        var tile = getTile(sprite, system.memory_cpu[0x2000]&(1<<3)?0x1000:0);
+        var tilerow = Math.floor(i/32);
+        var tilecol = Math.floor(i%32);
+
+        var colorTable = system.memory_ppu[palette+((tilerow/4)*8)+(tilecol/4)];
+        var colors = (colorTable>>(((tilerow/2)&1)*4+((tilecol/2)&1)))&0x3;
+
+        for (var y = 0; y < 8; y++) {
+          for (var x = 0; x < 8; x++) {
+            var index = ((tilerow * 8+y)*256 + (tilecol * 8) + x) * 4;
+            var pixel = system.color_map[getColor(tile[y*8+x],colors,0)];
+            pixels[index] = pixel[2];
+            pixels[index + 1] = pixel[1];
+            pixels[index + 2] = pixel[0];
+            pixels[index + 3] = 255;
+          }
+        }
+      }
+    }
+
+  } else {
+    var tiles = 32*30;
+    for (let i = 0; i < tiles; ++i) {
+      var tile = getTile(i,0);
+      var tilerow = Math.floor(i/32);
+      var tilecol = Math.floor(i%32);
+      for(var y = 0; y < 8; y++) {
+        for (var x = 0; x < 8; x++) {
+          var index = ((tilerow * 8+y)*256 + (tilecol * 8) + x) * 4;
+          var pixel = tile[y*8+x]*128;
+          pixels[index] = pixel;
+          pixels[index + 1] = pixel;
+          pixels[index + 2] = pixel;
+          pixels[index + 3] = 255;
+        }
       }
     }
   }
-  var tiles = 32*30;
-  for (let i = 0; i < tiles; ++i) {
-    var tile = getTile(i,0);
-    var tilerow = Math.floor(i/32);
-    var tilecol = Math.floor(i%32);
-    for(var y = 0; y < 8; y++) {
-      for (var x = 0; x < 8; x++) {
-        var index = ((tilerow * 8+y)*256 + (tilecol * 8) + x) * 4;
-        var pixel = tile[y*8+x]*128;
-        pixels[index] = pixel;
-        pixels[index + 1] = pixel;
-        pixels[index + 2] = pixel;
-        pixels[index + 3] = 255;
-      }
-    }
-  }
-
   texture.update(null, pixels, pitch);
   win.render.copy(texture, null, null);
   win.render.present();
@@ -141,6 +215,7 @@ class NESSystem {
     this.vram_addr=0;
     this.oam = Buffer.alloc(0xff);
     this.oamaddr = 0;
+    this.joy1_next = 0;
 
     this.nmi = false;
     this.bytes_read = 0;
@@ -161,6 +236,70 @@ class NESSystem {
 
     this.temp_regstate = "";
     this.temp_load_addr = 0;
+
+    this.color_map = new Array(0x3f);
+
+    this.init_palette();
+  }
+
+  init_palette() {
+    var index = 0;
+    this.color_map[index++] = [84,84,84];
+    this.color_map[index++] = [0,30,116];
+    this.color_map[index++] = [8,16,144];
+    this.color_map[index++] = [48,0,136];
+    this.color_map[index++] = [68,0,100];
+    this.color_map[index++] = [92,0,48];
+    this.color_map[index++] = [84,4,0];
+    this.color_map[index++] = [60,24,0];
+    this.color_map[index++] = [32,42,0];
+    this.color_map[index++] = [8,58,0];
+    this.color_map[index++] = [0,64,0];
+    this.color_map[index++] = [0,60,0];
+    this.color_map[index++] = [0,50,60];
+    this.color_map[index++] = [0,0,0];
+    this.color_map[index++] = [152,150,152];
+    this.color_map[index++] = [8,76,196];
+    this.color_map[index++] = [48,50,236];
+    this.color_map[index++] = [92,30,228];
+    this.color_map[index++] = [136,20,176];
+    this.color_map[index++] = [160,20,100];
+    this.color_map[index++] = [152,34,32];
+    this.color_map[index++] = [120,60,0];
+    this.color_map[index++] = [84,90,0];
+    this.color_map[index++] = [40,114,0];
+    this.color_map[index++] = [8,124,0];
+    this.color_map[index++] = [0,118,40];
+    this.color_map[index++] = [0,102,120];
+    this.color_map[index++] = [0,0,0];
+    this.color_map[index++] = [236,238,236];
+    this.color_map[index++] = [76,154,236];
+    this.color_map[index++] = [120,124,236];
+    this.color_map[index++] = [176,98,236];
+    this.color_map[index++] = [228,84,236];
+    this.color_map[index++] = [236,88,180];
+    this.color_map[index++] = [236,106,100];
+    this.color_map[index++] = [212,136,32];
+    this.color_map[index++] = [160,170,0];
+    this.color_map[index++] = [116,196,0];
+    this.color_map[index++] = [76,208,32];
+    this.color_map[index++] = [56,204,108];
+    this.color_map[index++] = [56,180,204];
+    this.color_map[index++] = [60,60,60];
+    this.color_map[index++] = [236,238,236];
+    this.color_map[index++] = [168,204,236];
+    this.color_map[index++] = [188,188,236];
+    this.color_map[index++] = [212,178,236];
+    this.color_map[index++] = [236,174,236];
+    this.color_map[index++] = [236,174,212];
+    this.color_map[index++] = [236,180,176];
+    this.color_map[index++] = [228,196,144];
+    this.color_map[index++] = [204,210,120];
+    this.color_map[index++] = [180,222,120];
+    this.color_map[index++] = [168,226,144];
+    this.color_map[index++] = [152,226,180];
+    this.color_map[index++] = [160,214,228];
+    this.color_map[index++] = [160,162,160];
   }
 
   push_stack(byte) {
@@ -188,13 +327,25 @@ class NESSystem {
       return this.memory_ppu[this.vram_addr++];
     } else if(addr === PPUSTATUS) {
       //console.log("PPUSTATUS Read")
+      var oldStatus = this.memory_cpu[PPUSTATUS];
+      this.memory_cpu[PPUSTATUS] &= 0x7f;
+      return oldStatus;
+    } else if(addr === 0x4016) {
+      //console.log("$4016 Read");
+      var joyState = this.joy1_next;
+      this.joy1_next++;
+      if(this.joy1_next===8) this.joy1_next=0;
+      return 0x40|((byteToUnsigned(Joy1data)>>joyState)&1);
+    } else if(addr === 0x4017) {
+      //console.log("$4017 Read")
+      return 0x40|2;
     }
 
     return this.memory_cpu[addr];
   }
   write_memory(addr, byte) {
     if(addr === PPUCTRL) {
-      console.log("Writing byte "+Number(byte).toString(16)+" to PPU control");
+      //console.log("$"+Number(this.PC).toString(16)+" Writing byte "+Number(byte).toString(16)+" to PPU control");
     } else if(addr === PPUSCROLL) {
       this.ppu_scroll_toggle = this.ppu_scroll_toggle?0:1;
       if(this.ppu_scroll_toggle) this.ppu_scroll_x = byte;
@@ -211,8 +362,10 @@ class NESSystem {
       }
     } else if(addr === PPUDATA) {
       const increment = (this.memory_cpu[0x2000]&0x4)?32:1;
+      //console.log("Writing $"+Number(byte).toString(16)+" to $"+Number(this.vram_addr).toString(16));
       this.memory_ppu[this.vram_addr+=increment] = byte;
     } else if(addr === OAMADDR) {
+      console.log("OAM addr");
       this.oamaddr = byte;
     } else if(addr === OAMDATA) {
       console.log("OAM data");
@@ -223,7 +376,10 @@ class NESSystem {
       this.cycles+=513;
       this.memory_cpu.copy(this.oam,0,0x100*byte, 0x100*byte+255);
       console.log("DMA Write: "+Number(byte).toString(16));
-      console.log(this.oam);
+      //console.log(this.oam);
+    } else if(addr === 0x4016) {
+      if(byte === 0)
+        this.joy1_next = 0;
     }
 
     this.bytes_written++;
@@ -321,7 +477,7 @@ class NESSystem {
     data.copy(this.memory_cpu, this.PC, 16, 16+this.header.prg_size);
     data.copy(this.memory_ppu, 0, 16+this.header.prg_size, 16+this.header.prg_size+this.header.chr_size);
 
-    //this.PC+=4;
+    this.PC+=4;
     console.log("PRG ROM: "+this.header.prg_size);
     console.log("CHR ROM: "+this.header.chr_size);
     return true;
@@ -330,14 +486,18 @@ class NESSystem {
   run_ppu() {
     while(this.cycles_ppu < this.cycles*3) {
       //this.nmi = false;
-      if(this.ppu_scanline>=240) {
+      if(this.ppu_scanline===240 && this.cycles_this_line == 0) {
+        //console.log("VSync "+this.cycles);
         this.memory_cpu[PPUSTATUS] |= 0x80;
         if(this.memory_cpu[PPUCTRL]&0x80) {
           this.memory_cpu[PPUCTRL] &= 0x7f;
           this.nmi = true;
         }
       }
-      else this.memory_cpu[PPUSTATUS] &= 0x7f;
+      if(this.ppu_scanline===260 && this.cycles_this_line == 0) {
+        this.memory_cpu[PPUSTATUS] &= 0x7f;
+        //console.log("VSync over "+this.cycles );
+      }
 
       this.cycles_ppu++;
       this.cycles_ppu_this_frame++;
@@ -827,7 +987,7 @@ class NESSystem {
           this.set_processor_status(this.pop_stack());
           abs_addr = (byteToUnsigned(this.pop_stack())) +(byteToUnsigned(this.pop_stack())<<8);
           this.print_op_info(this.PC-original_PC,"RTI $"+Number(abs_addr).toString(16));
-          console.log("RTI $"+Number(abs_addr).toString(16)+" Stack: "+Number(this.S).toString(16));
+          //console.log("RTI $"+Number(abs_addr).toString(16)+" Stack: "+Number(this.S).toString(16));
           this.PC = abs_addr-1;
           break;
         case 0x41:  // EOR indirect,X (Exclusive or)
