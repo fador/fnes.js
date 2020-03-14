@@ -46,7 +46,7 @@ class NESSystem {
     this.cycles_ppu = 0;
     this.ppu_addr_toggle=0;
     this.vram_addr=0;
-    this.oam = Buffer.alloc(0xff);
+    this.oam = new Uint8Array(0xff);
     this.oamaddr = 0;
     this.joy1_next = 0;
     this.Joy1data = 0;
@@ -61,14 +61,14 @@ class NESSystem {
     this.ops = 0;
     this.PC = 0x8000;
     this.S = 0xfd;
-    this.P = Buffer.alloc(1);
+    this.P = new Uint8Array(1);
     this.P[0] = 0x24;
-    this.A = Buffer.alloc(1);
-    this.X = Buffer.alloc(1);
-    this.Y = Buffer.alloc(1);
+    this.A = new Uint8Array(1);
+    this.X = new Uint8Array(1);
+    this.Y = new Uint8Array(1);
     this.header = new NESHeader();
-    this.memory_cpu = Buffer.alloc(0xffff);
-    this.memory_ppu = Buffer.alloc(0x3fff);
+    this.memory_cpu = new Uint8Array(0xffff);
+    this.memory_ppu = new Uint8Array(0x3fff);
 
     this.memory_cpu[0x4017] = 0x40; //APU Interrupt disable
     this.temp_regstate = "";
@@ -244,7 +244,8 @@ class NESSystem {
       console.log("APU Frame Counter to "+Number(byte).toString(16));
     } else if(addr === 0x4014) { // DMA
       this.cycles+=513;
-      this.memory_cpu.copy(this.oam,0,0x100*byte, 0x100*byte+255);
+      //this.memory_cpu.copy(this.oam,0,0x100*byte, 0x100*byte+255);
+      this.oam = this.memory_cpu.slice(0x100*byte, 0x100*byte+255);
       //console.log("DMA Write: "+Number(byte).toString(16));
       //console.log(this.oam);
     } else if(addr === 0x4016) {
@@ -345,9 +346,10 @@ class NESSystem {
     this.pal = !!data[9];
     this.mirroring = data[6]&1;
     if(this.header.prg_size === 16384) this.PC = 0xc000;
-    data.copy(this.memory_cpu, this.PC, 16, 16+this.header.prg_size);
-    data.copy(this.memory_ppu, 0, 16+this.header.prg_size, 16+this.header.prg_size+this.header.chr_size);
-
+    //data.copy(this.memory_cpu, this.PC, 16, 16+this.header.prg_size);
+    //data.copy(this.memory_ppu, 0, 16+this.header.prg_size, 16+this.header.prg_size+this.header.chr_size);
+    for(var i = 16; i < 16+this.header.prg_size;i++) this.memory_cpu[this.PC+i-16] = data[i];
+    for(var i = 16+this.header.prg_size; i < 16+this.header.prg_size+this.header.chr_size;i++) this.memory_ppu[i-(16+this.header.prg_size)] = data[i];
     this.PC+=4;
     console.log("PRG ROM: "+this.header.prg_size);
     console.log("CHR ROM: "+this.header.chr_size);
