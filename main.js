@@ -53,6 +53,17 @@ win.on('keydown', (key) => {
     Joy1data = (1<<4);
     console.log("Up");
   }
+  if(key.scancode === 12) { // 'I''
+                            //Generate an interrupt
+    system.cycles += 2;
+    var addr = system.PC;
+    system.push_stack((addr & 0xff00) >> 8);
+    system.push_stack(addr & 0xff);
+    system.push_stack(system.P);
+    system.P |= (1 << 2); // Interrupt disable
+    system.PC = system.load_abs_addr(0xFFFE);
+    console.log("IRQ $" + Number(system.PC).toString(16) + " From $" + Number(addr).toString(16) + " Stack: " + Number(system.S + 3).toString(16));
+  }
 });
 
 win.on('keyup', (key) => {
@@ -269,6 +280,7 @@ class NESSystem {
     this.memory_cpu = Buffer.alloc(0xffff);
     this.memory_ppu = Buffer.alloc(0x3fff);
 
+    this.memory_cpu[0x4017] = 0x40; //APU Interrupt disable
     this.temp_regstate = "";
     this.temp_load_addr = 0;
 
@@ -380,9 +392,6 @@ class NESSystem {
       this.joy1_next++;
       if(this.joy1_next===8) this.joy1_next=0;
       return 0x40|((byteToUnsigned(Joy1data)>>joyState)&1);
-    } else if(addr === 0x4017) {
-      //console.log("$4017 Read")
-      return 0x40|2;
     }
 
     return this.memory_cpu[addr];
@@ -416,6 +425,10 @@ class NESSystem {
       this.oam[(this.oamaddr++)&0xff] = byte;
     } else if(addr >= 0x2001 && addr <= 0x2007) {
       //console.log("Writing byte "+Number(byte).toString(16)+" to "+Number(addr).toString(16));
+    } else if(addr === 0x4010) {
+      console.log("APU DMC to "+Number(byte).toString(16));
+    } else if(addr === 0x4017) {
+      console.log("APU Frame Counter to "+Number(byte).toString(16));
     } else if(addr === 0x4014) { // DMA
       this.cycles+=513;
       this.memory_cpu.copy(this.oam,0,0x100*byte, 0x100*byte+255);
@@ -484,7 +497,7 @@ class NESSystem {
   debug_print() {
     console.log("A:" + this.A[0].toString(16)+" X:" + this.X[0].toString(16)+" Y:" + this.Y[0].toString(16)+" PC " + this.PC.toString(16) + ": " + this.memory_cpu[this.PC].toString(16));
     console.log("Cycles/ops processed: " + this.cycles+" / "+this.ops);
-    console.log("Status: " + this.P[0].toString(2));
+    console.log("Status: " + this.P.toString(2));
     console.log("Bytes read / written: "+this.bytes_read + " / "+this.bytes_written);
   }
 
@@ -530,7 +543,7 @@ class NESSystem {
   run_ppu() {
     while(this.cycles_ppu < this.cycles*3) {
       //this.nmi = false;
-      if(this.ppu_scanline===240 && this.cycles_this_line == 0) {
+      if(this.ppu_scanline===240 && this.cycles_this_line === 0) {
         //console.log("VSync "+this.cycles);
         this.memory_cpu[PPUSTATUS] |= 0x80;
         if(this.memory_cpu[PPUCTRL]&0x80) {
@@ -538,7 +551,7 @@ class NESSystem {
           this.nmi = true;
         }
       }
-      if(this.ppu_scanline===260 && this.cycles_this_line == 0) {
+      if(this.ppu_scanline===260 && this.cycles_this_line === 0) {
         this.memory_cpu[PPUSTATUS] &= 0x7f;
         //console.log("VSync over "+this.cycles );
       }
@@ -550,6 +563,18 @@ class NESSystem {
         this.cycles_this_line = 0;
         this.ppu_scanline++;
         if(this.ppu_scanline === 261) {
+          // If frame interrupts enabled
+          if(this.memory_cpu[0x4017]&0x40 === 0 && this.P&(1<<2) === 0) {
+            //Generate an interrupt
+            this.cycles+=2;
+            var addr = this.PC;
+            this.push_stack((addr&0xff00)>>8);
+            this.push_stack(addr&0xff);
+            this.push_stack(this.P);
+            this.P |= (1<<2); // Interrupt disable
+            this.PC = this.load_abs_addr(0xFFFE);
+            console.log("IRQ $"+Number(this.PC).toString(16)+ " From $"+Number(addr).toString(16)+" Stack: "+Number(this.S+3).toString(16));
+          }
           this.ppu_scanline=-1;
           this.cycles_ppu_this_frame=0;
         }
@@ -1186,6 +1211,11 @@ class NESSystem {
           this.set_negative_zero(this.A[0]);
           this.print_op_info(this.PC-original_PC,"*SRE $"+Number(this.temp_load_addr).toString(16)+",X");
           break;
+        case 0x58:  // CLI
+          original_PC = this.PC;
+          this.P[0] = (this.P[0] & (0xFB));
+          this.print_op_info(this.PC-original_PC,"CLI");
+          break;
         case 0x59:  // EOR abs,Y (Exclusive or)
           original_PC = this.PC;
           this.cycles+=3;
@@ -1386,7 +1416,7 @@ class NESSystem {
           break;
         case 0x78:  // SEI
           original_PC = this.PC;
-          this.P[0] = (this.P[0] | 2);
+          this.P[0] = (this.P[0] | (1<<2));
           this.print_op_info(this.PC-original_PC,"SEI");
           break;
         case 0x79:  // ADC abs,Y (add with carry)
