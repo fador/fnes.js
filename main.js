@@ -30,6 +30,19 @@ const texture = win.render.createTexture(
 const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
 const pitch = WIDTH * 4;
 
+function getTile(index, table) {
+  var tile = Buffer.alloc(8*8);
+  var base_index = table + index*16;
+  for(var y = 0; y < 8; y++) {
+    for (var x = 0; x < 8; x++) {
+      var byte = ((system.memory_ppu[base_index + y] >> (7 - x)) & 1) ? 1 : 0;
+      byte += ((system.memory_ppu[base_index + y + 8] >> (7 - x)) & 1) ? 2 : 0;
+      tile[y*8+x] = byte;
+    }
+  }
+  return tile;
+}
+
 function draw() {
 
   for(var i = 0; i < 256;i+=4) {
@@ -40,8 +53,8 @@ function draw() {
     const spriteTable = 0x0000;
     for(var y = 0; y < 8; y++) {
       for (var x = 0; x < 8; x++) {
-        var byte = ((system.memory_ppu[spriteTable+sprite*0xf+y]>>(7-x))&1)?66:0;
-        byte += ((system.memory_ppu[spriteTable+sprite*0xf+y+8]>>(7-x))&1)?128:0;
+        var byte = ((system.memory_ppu[spriteTable+sprite*16+y]>>(7-x))&1)?66:0;
+        byte += ((system.memory_ppu[spriteTable+sprite*16+y+8]>>(7-x))&1)?128:0;
         const index = ((y_pos+y)*WIDTH+(x_pos+x))*4;
         pixels[index]     = byte;
         pixels[index + 1] = byte;
@@ -50,20 +63,23 @@ function draw() {
       }
     }
   }
-/*
-  for (let i = 0; i < HEIGHT; ++i) {
-    for (let j = 0; j < WIDTH; ++j) {
-      const index = (i * WIDTH + j) * 4;
-      const memory_idx = i+0x2000+(Math.floor(j/8))*256+(Math.floor(i/8))*8;
-      var byte = (byteToUnsigned(system.memory_ppu[memory_idx]>>(j%8))&1)?64:0;
-      byte += (byteToUnsigned(system.memory_ppu[memory_idx+8]>>(j%8))&1)?128:0;
-      pixels[index]     = byte;
-      pixels[index + 1] = byte;
-      pixels[index + 2] = byte;
-      pixels[index + 3] = 255;
+  var tiles = 32*30;
+  for (let i = 0; i < tiles; ++i) {
+    var tile = getTile(i,0);
+    var tilerow = Math.floor(i/32);
+    var tilecol = Math.floor(i%32);
+    for(var y = 0; y < 8; y++) {
+      for (var x = 0; x < 8; x++) {
+        var index = ((tilerow * 8+y)*256 + (tilecol * 8) + x) * 4;
+        var pixel = tile[y*8+x]*128;
+        pixels[index] = pixel;
+        pixels[index + 1] = pixel;
+        pixels[index + 2] = pixel;
+        pixels[index + 3] = 255;
+      }
     }
   }
-*/
+
   texture.update(null, pixels, pitch);
   win.render.copy(texture, null, null);
   win.render.present();
@@ -130,7 +146,7 @@ class NESSystem {
     this.bytes_read = 0;
     this.bytes_written = 0;
     this.debug = 0;//DEBUG_OPS;
-    this.cycles = 0;
+    this.cycles = 7;
     this.ops = 0;
     this.PC = 0x8000;
     this.S = 0xfd;
@@ -303,7 +319,7 @@ class NESSystem {
     this.pal = !!data[9];
     if(this.header.prg_size === 16384) this.PC = 0xc000;
     data.copy(this.memory_cpu, this.PC, 16, 16+this.header.prg_size);
-    data.copy(this.memory_ppu, 0x0000, 16+this.header.prg_size, this.header.chr_size);
+    data.copy(this.memory_ppu, 0, 16+this.header.prg_size, 16+this.header.prg_size+this.header.chr_size);
 
     //this.PC+=4;
     console.log("PRG ROM: "+this.header.prg_size);
@@ -360,7 +376,7 @@ class NESSystem {
         this.push_stack(addr&0xff);
         this.push_stack(this.P);
         this.PC = this.load_abs_addr(0xFFFA);
-        console.log("NMI $"+Number(this.PC).toString(16)+ " From $"+Number(addr).toString(16)+" Stack: "+Number(this.S+3).toString(16));
+        //console.log("NMI $"+Number(this.PC).toString(16)+ " From $"+Number(addr).toString(16)+" Stack: "+Number(this.S+3).toString(16));
       }
       var original_PC;
       switch (this.read_memory(this.PC)) {
@@ -590,7 +606,7 @@ class NESSystem {
           break;
         case 0x20:  // JSR (Jump to subroutine)
           original_PC = this.PC;
-          this.cycles++;
+          this.cycles+=5;
           abs_addr = this.get_addr_absolute();
           this.push_stack(((this.PC)&0xff00)>>8);
           this.push_stack((this.PC)&0xff);
@@ -816,6 +832,7 @@ class NESSystem {
           break;
         case 0x41:  // EOR indirect,X (Exclusive or)
           original_PC = this.PC;
+          
           this.cycles+=2;
           val = this.read_indirect_x()^this.A[0];
           this.A[0] = val;
@@ -1489,7 +1506,7 @@ class NESSystem {
         case 0xb0:  // BCS (Branch on Carry Set)
           original_PC = this.PC;
           this.PC++;
-          this.cycles++;
+          this.cycles+=2;
           offset = byteToSigned(this.read_memory(this.PC));
           if(offset < 0) offset -= 2;
           this.print_op_info(this.PC-original_PC,"BCS $"+(this.PC+offset+1).toString(16));
@@ -1859,6 +1876,7 @@ class NESSystem {
           this.print_op_info(this.PC-original_PC,"SBC #$"+Number(val).toString(16));
           break;
         case 0xea:  // NOP
+          this.cycles++;
           original_PC = this.PC;
           this.print_op_info(this.PC-original_PC,"NOP");
           break;
@@ -2023,6 +2041,8 @@ class NESSystem {
     registers += " Y:"+Number(this.Y[0]).toString(16).padStart(2,"0").toUpperCase();
     registers += " P:"+Number(this.P[0]).toString(16).padStart(2,"0").toUpperCase();
     registers += " SP:"+Number(this.S).toString(16).padStart(2,"0").toUpperCase();
+    registers += " PPU:   ,   ";
+    registers += " CYC:"+this.cycles;
     return registers;
   }
 
