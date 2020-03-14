@@ -12,6 +12,7 @@ const App = NS.createAppWithFlags(SDL.SDL_InitFlags.SDL_INIT_EVERYTHING);
 var render_ppu_nametable = false;
 var debugMode = false;
 var Joy1data = 0;
+var delay = 20;
 const DEBUG_OPS = 1<<0;
 const DEBUG_MEMORY = 1<<1;
 
@@ -38,25 +39,50 @@ win.on('keydown', (key) => {
     console.log("Debug mode = "+debugMode);
   }
   if(key.scancode === 40) { // Start
-    Joy1data = (1<<3);
+    Joy1data |= (1<<3);
     console.log("Start");
   }
   if(key.scancode === 79) { // Right
-    Joy1data = (1<<7);
+    Joy1data |= (1<<7);
     console.log("Right");
   }
   if(key.scancode === 80) { // Left
-    Joy1data = (1<<6);
+    Joy1data |= (1<<6);
     console.log("Left");
   }
   if(key.scancode === 81) { // Down
-    Joy1data = (1<<5);
+    Joy1data |= (1<<5);
     console.log("Down");
   }
   if(key.scancode === 82) { // Up
-    Joy1data = (1<<4);
+    Joy1data |= (1<<4);
     console.log("Up");
   }
+
+  if(key.scancode === 29) { // 'Z'
+    Joy1data |= (1<<0);
+    console.log("A");
+  }
+  if(key.scancode === 27) { // 'X'
+    Joy1data |= (1<<1);
+    console.log("B");
+  }
+  if(key.scancode === 15) { // 'L'
+    Joy1data |= (1<<2);
+    console.log("select");
+  }
+
+  if(key.scancode === 87) { // Plus
+    delay+=10;
+    console.log("Delay "+delay+"ms");
+  }
+
+  if(key.scancode === 215) { // Minus
+    delay-=10;
+    if(delay < 0) delay = 0;
+    console.log("Delay "+delay+"ms");
+  }
+
   if(key.scancode === 12) { // 'I''
                             //Generate an interrupt
     system.cycles += 2;
@@ -73,7 +99,38 @@ win.on('keydown', (key) => {
 });
 
 win.on('keyup', (key) => {
-  Joy1data = 0;
+  if(key.scancode === 40) { // Start
+    Joy1data &= (1<<3)^0xff;
+    console.log("Start");
+  }
+  if(key.scancode === 79) { // Right
+    Joy1data &= (1<<7)^0xff;
+    console.log("Right");
+  }
+  if(key.scancode === 80) { // Left
+    Joy1data &= (1<<6)^0xff;
+    console.log("Left");
+  }
+  if(key.scancode === 81) { // Down
+    Joy1data &= (1<<5)^0xff;
+    console.log("Down");
+  }
+  if(key.scancode === 82) { // Up
+    Joy1data &= (1<<4)^0xff;
+    console.log("Up");
+  }
+  if(key.scancode === 29) { // 'Z'
+    Joy1data &= (1<<0)^0xff;
+    console.log("A");
+  }
+  if(key.scancode === 27) { // 'X'
+    Joy1data &= (1<<1)^0xff;
+    console.log("B");
+  }
+  if(key.scancode === 15) { // 'L'
+    Joy1data &= (1<<2)^0xff;
+    console.log("select");
+  }
   system.Joy1data = Joy1data;
 });
 
@@ -151,7 +208,7 @@ function draw() {
 
     if (oam) {
       for (var i = 0; i < 256; i += 4) {
-        var y_pos = system.oam[i];
+        var y_pos = system.oam[i]+1;
         var sprite = system.oam[i + 1];
         var x_pos = system.oam[i + 3];
         var attributes = system.oam[i + 2];
@@ -254,7 +311,7 @@ async function main()
       if(!system.run_ppu()) break;
       if(system.cycles-tempcycles > 100000) {
         tempcycles = system.cycles;
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, delay));
         if(system.cycles < 200000) {
           console.log("Palette:" +Number(getColor(0, 0, 0)).toString(16));
           console.log("Palette:" +Number(getColor(1, 0, 0)).toString(16));
