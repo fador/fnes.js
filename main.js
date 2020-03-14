@@ -50,7 +50,7 @@ function draw() {
       }
     }
   }
-  /*
+/*
   for (let i = 0; i < HEIGHT; ++i) {
     for (let j = 0; j < WIDTH; ++j) {
       const index = (i * WIDTH + j) * 4;
@@ -62,8 +62,8 @@ function draw() {
       pixels[index + 2] = byte;
       pixels[index + 3] = 255;
     }
-  }*/
-
+  }
+*/
   texture.update(null, pixels, pitch);
   win.render.copy(texture, null, null);
   win.render.present();
@@ -129,7 +129,7 @@ class NESSystem {
     this.nmi = false;
     this.bytes_read = 0;
     this.bytes_written = 0;
-    this.debug = DEBUG_OPS;
+    this.debug = 0;//DEBUG_OPS;
     this.cycles = 0;
     this.ops = 0;
     this.PC = 0x8000;
@@ -171,7 +171,7 @@ class NESSystem {
     } else if(addr === PPUDATA) {
       return this.memory_ppu[this.vram_addr++];
     } else if(addr === PPUSTATUS) {
-      console.log("PPUSTATUS Read")
+      //console.log("PPUSTATUS Read")
     }
 
     return this.memory_cpu[addr];
@@ -205,8 +205,9 @@ class NESSystem {
       //console.log("Writing byte "+Number(byte).toString(16)+" to "+Number(addr).toString(16));
     } else if(addr === 0x4014) { // DMA
       this.cycles+=513;
-      this.memory_cpu.copy(this.oam,0,0x100*this.oamaddr, 0x100*this.oamaddr+255);
+      this.memory_cpu.copy(this.oam,0,0x100*byte, 0x100*byte+255);
       console.log("DMA Write: "+Number(byte).toString(16));
+      console.log(this.oam);
     }
 
     this.bytes_written++;
@@ -810,7 +811,7 @@ class NESSystem {
           this.set_processor_status(this.pop_stack());
           abs_addr = (byteToUnsigned(this.pop_stack())) +(byteToUnsigned(this.pop_stack())<<8);
           this.print_op_info(this.PC-original_PC,"RTI $"+Number(abs_addr).toString(16));
-          //console.log("RTI $"+Number(abs_addr).toString(16)+" Stack: "+Number(this.S).toString(16));
+          console.log("RTI $"+Number(abs_addr).toString(16)+" Stack: "+Number(this.S).toString(16));
           this.PC = abs_addr-1;
           break;
         case 0x41:  // EOR indirect,X (Exclusive or)
