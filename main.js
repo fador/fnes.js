@@ -12,6 +12,8 @@ const App = NS.createAppWithFlags(SDL.SDL_InitFlags.SDL_INIT_EVERYTHING);
 var render_ppu_nametable = false;
 var debugMode = false;
 var Joy1data = 0;
+const DEBUG_OPS = 1<<0;
+const DEBUG_MEMORY = 1<<1;
 
 // Test window begin
 const Window = NS.window;
@@ -125,7 +127,7 @@ function draw() {
         var tilecol = Math.floor(i % 32);
 
         var colorTable = system.memory_ppu[palette_addr + (Math.floor(tilerow / 4) * 8) + Math.floor(tilecol / 4)];
-        var colors = (colorTable >> ((Math.floor((tilerow / 2)) & 1) * 4 + (Math.floor((tilecol / 2)) & 1))) & 0x3;
+        var colors = (colorTable >> ((Math.floor((tilerow / 2)) & 1) * 4 + (Math.floor((tilecol / 2)) & 1)*2)) & 0x3;
 
         for (var y = 0; y < 8; y++) {
           for (var x = 0; x < 8; x++) {
@@ -153,6 +155,8 @@ function draw() {
         var sprite = system.oam[i + 1];
         var x_pos = system.oam[i + 3];
         var attributes = system.oam[i + 2];
+
+        const spriteSize = (system.memory_cpu[0x2000] & (1 << 5))?1:0;
 
         const spriteTables = [0x0000,0x1000];
         const spriteTable = spriteTables[(system.memory_cpu[0x2000] & (1 << 3))?1:0];
@@ -221,8 +225,6 @@ function draw() {
       }
     }
   }
-
-
 
   texture.update(null, pixels, pitch);
   win.render.copy(texture, null, null);
