@@ -7,7 +7,7 @@ const SDL_pixels = NS.require('SDL_pixels');
 // Test app begin
 const App = NS.createAppWithFlags(SDL.SDL_InitFlags.SDL_INIT_EVERYTHING);
 
-var render_sprite = false;
+var render_ppu_nametable = false;
 var debugMode = false;
 var Joy1data = 0;
 
@@ -23,13 +23,14 @@ win.on('close', function() {
 });
 win.on('keydown', (key) => {
   if (key.scancode === 41)  // Escape
-    return App.quit()
+    return App.quit();
   if(key.scancode === 44) { // Space
-    render_sprite = render_sprite?false:true
-    console.log("Render Sprite = "+render_sprite);
+    render_ppu_nametable = render_ppu_nametable?false:true
+    console.log("Render Sprite = "+render_ppu_nametable);
   }
   if(key.scancode === 7) { // 'D'
     debugMode = debugMode?false:true
+    system.debug = debugMode?DEBUG_OPS:0;
     console.log("Debug mode = "+debugMode);
   }
   if(key.scancode === 40) { // Start
@@ -67,7 +68,7 @@ const texture = win.render.createTexture(
 const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
 const pitch = WIDTH * 4;
 
-var tile = Buffer.alloc(8*8);
+var tempTile = Buffer.alloc(8*8);
 
 function getTile(index, table) {
   var base_index = table + index*16;
@@ -75,33 +76,65 @@ function getTile(index, table) {
     for (var x = 0; x < 8; x++) {
       var byte = ((system.memory_ppu[base_index + y] >> (7 - x)) & 1) ? 1 : 0;
       byte += ((system.memory_ppu[base_index + y + 8] >> (7 - x)) & 1) ? 2 : 0;
-      tile[y*8+x] = byte;
+      tempTile[y*8+x] = byte;
     }
   }
-  return tile;
+  return tempTile;
 }
 
 function getColor(pixel,palette,sprite) {
-  return system.memory_ppu[0x3F00+pixel+(palette<<2)+(sprite<<4)];
+  return system.memory_ppu[0x3F01+pixel+(palette<<2)+(sprite<<4)];
 }
 
 function draw() {
 
-  if(!render_sprite) {
-    var oam=false;
-    if(oam) {
+  if (!render_ppu_nametable) {
+
+    var oam = (system.memory_cpu[0x2001] >> 4) & 1;
+    var background = (system.memory_cpu[0x2001] >> 3) & 1;
+    if (background) {
+      var tiles = 32 * 30;
+      var nametables = [0x2000, 0x2400, 0x2800, 0x2c00];
+      const tileTable = nametables[system.memory_cpu[0x2000] & 3];
+      const palette_addr = tileTable + 0x3C1;
+
+      for (let i = 0; i < tiles; ++i) {
+        var sprite = system.memory_ppu[tileTable + i];
+        var tile = getTile(sprite, system.memory_cpu[0x2000] & (1 << 3) ? 0x1000 : 0);
+        var tilerow = Math.floor(i / 32);
+        var tilecol = Math.floor(i % 32);
+
+        var colorTable = system.memory_ppu[palette_addr + (Math.floor(tilerow / 4) * 8) + Math.floor(tilecol / 4)];
+        var colors = colorTable >> (Math.floor((tilerow / 2) & 1) * 4 + (Math.floor((tilecol / 2) & 1))) & 0x3;
+
+        for (var y = 0; y < 8; y++) {
+          for (var x = 0; x < 8; x++) {
+            var index = ((tilerow * 8 + y) * 256 + (tilecol * 8) + x) * 4;
+            var pixel = system.color_map[getColor(tile[y * 8 + x], colors, 0)];
+            pixels[index] = pixel[0];
+            pixels[index + 1] = pixel[1];
+            pixels[index + 2] = pixel[2];
+            pixels[index + 3] = 255;
+          }
+        }
+      }
+    }
+
+    if (oam) {
       for (var i = 0; i < 256; i += 4) {
         var y_pos = system.oam[i];
         var sprite = system.oam[i + 1];
         var x_pos = system.oam[i + 3];
 
-        const spriteTable = 0x2000;
+        const spriteTables = [0x0000, 0x1000];
+        const spriteTable = spriteTables[(system.memory_cpu[0x2000] >> 3) & 1];
 
         var tile = getTile(sprite, spriteTable);
         for (var y = 0; y < 8; y++) {
           for (var x = 0; x < 8; x++) {
             var index = ((y_pos + y) * 256 + (x_pos) + x) * 4;
-            var pixel = tile[y * 8 + x] * 128;
+            //var pixel = tile[y * 8 + x] * 128;
+            var pixel = system.color_map[getColor(tile[y * 8 + x], colors, 1)];
             pixels[index] = pixel;
             pixels[index + 1] = pixel;
             pixels[index + 2] = pixel;
@@ -109,51 +142,53 @@ function draw() {
           }
         }
       }
-    } else {
-      var tiles = 32*30;
-      const tileTable = 0x2000;
-      const palette=tileTable+0x3C0;
-
-      for (let i = 0; i < tiles; ++i) {
-        var sprite = system.memory_ppu[tileTable+i];
-        var tile = getTile(sprite, system.memory_cpu[0x2000]&(1<<3)?0x1000:0);
-        var tilerow = Math.floor(i/32);
-        var tilecol = Math.floor(i%32);
-
-        var colorTable = system.memory_ppu[palette+((tilerow/4)*8)+(tilecol/4)];
-        var colors = (colorTable>>(((tilerow/2)&1)*4+((tilecol/2)&1)))&0x3;
-
-        for (var y = 0; y < 8; y++) {
-          for (var x = 0; x < 8; x++) {
-            var index = ((tilerow * 8+y)*256 + (tilecol * 8) + x) * 4;
-            var pixel = system.color_map[getColor(tile[y*8+x],colors,0)];
-            pixels[index] = pixel[2];
-            pixels[index + 1] = pixel[1];
-            pixels[index + 2] = pixel[0];
-            pixels[index + 3] = 255;
-          }
-        }
-      }
     }
 
   } else {
-    var tiles = 32*30;
+    var tiles = 32 * 30;
+    const tileTable = 0x2000;
+    const palette = tileTable + 0x3C0;
+
+
     for (let i = 0; i < tiles; ++i) {
-      var tile = getTile(i,0);
-      var tilerow = Math.floor(i/32);
-      var tilecol = Math.floor(i%32);
-      for(var y = 0; y < 8; y++) {
+      var tile = getTile(i, 0);
+      var tilerow = Math.floor(i / 32);
+      var tilecol = Math.floor(i % 32);
+
+      var colorTable = system.memory_ppu[palette + ((tilerow / 4) * 8) + (tilecol / 4)];
+      var colors = (colorTable >> (((tilerow / 2) & 1) * 4 + ((tilecol / 2) & 1))) & 0x3;
+
+      for (var y = 0; y < 8; y++) {
         for (var x = 0; x < 8; x++) {
-          var index = ((tilerow * 8+y)*256 + (tilecol * 8) + x) * 4;
-          var pixel = tile[y*8+x]*128;
-          pixels[index] = pixel;
-          pixels[index + 1] = pixel;
-          pixels[index + 2] = pixel;
+          var index = ((tilerow * 8 + y) * 256 + (tilecol * 8) + x) * 4;
+          var pixel = system.color_map[getColor(tile[y * 8 + x], colors, 0)];
+          pixels[index] = pixel[0];
+          pixels[index + 1] = pixel[1];
+          pixels[index + 2] = pixel[2];
           pixels[index + 3] = 255;
         }
       }
     }
   }
+
+  // Show palette
+  for(var palette_table = 0; palette_table< 4; palette_table++) {
+    for (var palette_idx = 0; palette_idx < 4; palette_idx++) {
+      for (var y = 0; y < 10; y++) {
+        for (var x = 0; x < 10; x++) {
+          var index = ((240 + y) * 256 + (palette_idx * 8+palette_table*32) + x) * 4;
+          var pixel = system.color_map[getColor(palette_idx, palette_table, 0)];
+          pixels[index] = pixel[0];
+          pixels[index + 1] = pixel[1];
+          pixels[index + 2] = pixel[2];
+          pixels[index + 3] = 255;
+        }
+      }
+    }
+  }
+
+
+
   texture.update(null, pixels, pitch);
   win.render.copy(texture, null, null);
   win.render.present();
@@ -243,63 +278,72 @@ class NESSystem {
   }
 
   init_palette() {
-    var index = 0;
-    this.color_map[index++] = [84,84,84];
-    this.color_map[index++] = [0,30,116];
-    this.color_map[index++] = [8,16,144];
-    this.color_map[index++] = [48,0,136];
-    this.color_map[index++] = [68,0,100];
-    this.color_map[index++] = [92,0,48];
-    this.color_map[index++] = [84,4,0];
-    this.color_map[index++] = [60,24,0];
-    this.color_map[index++] = [32,42,0];
-    this.color_map[index++] = [8,58,0];
-    this.color_map[index++] = [0,64,0];
-    this.color_map[index++] = [0,60,0];
-    this.color_map[index++] = [0,50,60];
-    this.color_map[index++] = [0,0,0];
-    this.color_map[index++] = [152,150,152];
-    this.color_map[index++] = [8,76,196];
-    this.color_map[index++] = [48,50,236];
-    this.color_map[index++] = [92,30,228];
-    this.color_map[index++] = [136,20,176];
-    this.color_map[index++] = [160,20,100];
-    this.color_map[index++] = [152,34,32];
-    this.color_map[index++] = [120,60,0];
-    this.color_map[index++] = [84,90,0];
-    this.color_map[index++] = [40,114,0];
-    this.color_map[index++] = [8,124,0];
-    this.color_map[index++] = [0,118,40];
-    this.color_map[index++] = [0,102,120];
-    this.color_map[index++] = [0,0,0];
-    this.color_map[index++] = [236,238,236];
-    this.color_map[index++] = [76,154,236];
-    this.color_map[index++] = [120,124,236];
-    this.color_map[index++] = [176,98,236];
-    this.color_map[index++] = [228,84,236];
-    this.color_map[index++] = [236,88,180];
-    this.color_map[index++] = [236,106,100];
-    this.color_map[index++] = [212,136,32];
-    this.color_map[index++] = [160,170,0];
-    this.color_map[index++] = [116,196,0];
-    this.color_map[index++] = [76,208,32];
-    this.color_map[index++] = [56,204,108];
-    this.color_map[index++] = [56,180,204];
-    this.color_map[index++] = [60,60,60];
-    this.color_map[index++] = [236,238,236];
-    this.color_map[index++] = [168,204,236];
-    this.color_map[index++] = [188,188,236];
-    this.color_map[index++] = [212,178,236];
-    this.color_map[index++] = [236,174,236];
-    this.color_map[index++] = [236,174,212];
-    this.color_map[index++] = [236,180,176];
-    this.color_map[index++] = [228,196,144];
-    this.color_map[index++] = [204,210,120];
-    this.color_map[index++] = [180,222,120];
-    this.color_map[index++] = [168,226,144];
-    this.color_map[index++] = [152,226,180];
-    this.color_map[index++] = [160,214,228];
-    this.color_map[index++] = [160,162,160];
+    this.color_map = [
+      [0x52,0x52,0x52], // 0x0
+      [0x01,0x1A,0x51], // 0x1
+      [0x0F,0x0F,0x65], // 0x2
+      [0x23,0x06,0x63], // 0x3
+      [0x36,0x03,0x4B], // 0x4
+      [0x40,0x04,0x26], // 0x5
+      [0x3F,0x09,0x04], // 0x6
+      [0x32,0x13,0x00], // 0x7
+      [0x1F,0x20,0x00], // 0x8
+      [0x0B,0x2A,0x00], // 0x9
+      [0x00,0x2F,0x00], // 0xa
+      [0x00,0x2E,0x0A], // 0xb
+      [0x00,0x26,0x2D], // 0xc
+      [0x00,0x00,0x00], // 0xd
+      [0x00,0x00,0x00], // 0xe
+      [0x00,0x00,0x00], // 0xf
+      [0xA0,0xA0,0xA0], // 0x10
+      [0x1E,0x4A,0x9D], // 0x11
+      [0x38,0x37,0xBC], // 0x12
+      [0x58,0x28,0xB8], // 0x13
+      [0x75,0x21,0x94], // 0x14
+      [0x84,0x23,0x5C], // 0x15
+      [0x82,0x2E,0x24], // 0x16
+      [0x6F,0x3F,0x00], // 0x17
+      [0x51,0x52,0x00], // 0x18
+      [0x31,0x63,0x00], // 0x19
+      [0x1A,0x6B,0x05], // 0x1a
+      [0x0E,0x69,0x2E], // 0x1b
+      [0x10,0x5C,0x68], // 0x1c
+      [0x00,0x00,0x00], // 0x1d
+      [0x00,0x00,0x00], // 0x1e
+      [0x00,0x00,0x00], // 0x1f
+      [0xFE,0xFF,0xFF], // 0x20
+      [0x69,0x9E,0xFC], // 0x21
+      [0x89,0x87,0xFF], // 0x22
+      [0xAE,0x76,0xFF], // 0x23
+      [0xCE,0x6D,0xF1], // 0x24
+      [0xE0,0x70,0xB2], // 0x25
+      [0xDE,0x7C,0x70], // 0x26
+      [0xC8,0x91,0x3E], // 0x27
+      [0xA6,0xA7,0x25], // 0x28
+      [0x81,0xBA,0x28], // 0x29
+      [0x63,0xC4,0x46], // 0x2a
+      [0x54,0xC1,0x7D], // 0x2b
+      [0x56,0xB3,0xC0], // 0x2c
+      [0x3C,0x3C,0x3C], // 0x2d
+      [0x00,0x00,0x00], // 0x2e
+      [0x00,0x00,0x00], // 0x2f
+      [0xFE,0xFF,0xFF], // 0x30
+      [0xBE,0xD6,0xFD], // 0x31
+      [0xCC,0xCC,0xFF], // 0x32
+      [0xDD,0xC4,0xFF], // 0x33
+      [0xEA,0xC0,0xF9], // 0x34
+      [0xF2,0xC1,0xDF], // 0x35
+      [0xF1,0xC7,0xC2], // 0x36
+      [0xE8,0xD0,0xAA], // 0x37
+      [0xD9,0xDA,0x9D], // 0x38
+      [0xC9,0xE2,0x9E], // 0x39
+      [0xBC,0xE6,0xAE], // 0x3a
+      [0xB4,0xE5,0xC7], // 0x3b
+      [0xB5,0xDF,0xE4], // 0x3c
+      [0xA9,0xA9,0xA9], // 0x3d
+      [0x00,0x00,0x00], // 0x3e
+      [0x00,0x00,0x00], // 0x3f
+    ];
   }
 
   push_stack(byte) {
@@ -2360,6 +2404,12 @@ async function main()
       if(system.cycles-tempcycles > 100000) {
         tempcycles = system.cycles;
         await new Promise(resolve => setTimeout(resolve, 1));
+        if(system.cycles < 200000) {
+          console.log("Palette:" +Number(getColor(0, 0, 0)).toString(16));
+          console.log("Palette:" +Number(getColor(1, 0, 0)).toString(16));
+          console.log("Palette:" +Number(getColor(2, 0, 0)).toString(16));
+          console.log("Palette:" +Number(getColor(3, 0, 0)).toString(16));
+        }
       }
     }
     system.debug_print();
