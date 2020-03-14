@@ -105,11 +105,14 @@ function draw() {
     var background = (system.memory_cpu[0x2001] >> 3) & 1;
     if (background) {
       var tiles = 32 * 30;
-      var nametables = [0x2000, 0x2400, 0x2800, 0x2c00];
+      var nametables = system.mirroring?[0x2000, 0x2400, 0x2000, 0x2400]:[0x2000, 0x2000, 0x2800, 0x2800];
+
       const tileTable = nametables[system.memory_cpu[0x2000] & 3];
       const palette_addr = tileTable + 0x3C1;
 
-      const selected_tile_table = system.memory_cpu[0x2000] & (1 << 3) ? 0:0x1000 ;
+      const selected_tile_table = system.memory_cpu[0x2000] & (1 << 3) ? 0:0x1000;
+      const background_color_list = [0x1f, 0x11, 0x19, 0x00, 0x16];
+      const background_color = system.color_map[background_color_list[(system.memory_cpu[0x2001]>>5)&0x7]];
 
       for (let i = 0; i < tiles; ++i) {
         var sprite = system.memory_ppu[tileTable + i];
@@ -118,16 +121,23 @@ function draw() {
         var tilecol = Math.floor(i % 32);
 
         var colorTable = system.memory_ppu[palette_addr + (Math.floor(tilerow / 4) * 8) + Math.floor(tilecol / 4)];
-        var colors = colorTable >> (Math.floor((tilerow / 2) & 1) * 4 + (Math.floor((tilecol / 2) & 1))) & 0x3;
+        var colors = (colorTable >> ((Math.floor((tilerow / 2)) & 1) * 4 + (Math.floor((tilecol / 2)) & 1))) & 0x3;
 
         for (var y = 0; y < 8; y++) {
           for (var x = 0; x < 8; x++) {
             var index = ((tilerow * 8 + y) * 256 + (tilecol * 8) + x) * 4;
-            var pixel = system.color_map[getColor(tile[y * 8 + x], colors, 0)];
+            var color = getColor(tile[y * 8 + x], colors, 0);
+            var pixel;
+            if(tile[y * 8 + x] != 0) {
+              pixel = system.color_map[color];
+            } else {
+              pixel = background_color;
+            }
             pixels[index] = pixel[0];
             pixels[index + 1] = pixel[1];
             pixels[index + 2] = pixel[2];
             pixels[index + 3] = 255;
+
           }
         }
       }
@@ -151,8 +161,9 @@ function draw() {
           for (var x = 0; x < 8; x++) {
             var index = ((y_pos + y) * 256 + (x_pos) + x) * 4;
             //var pixel = tile[y * 8 + x] * 128;
-            var color = getColor(tile[(flip_y?(7-y):y) * 8 + (flip_x?(7-x):x)], attributes&3, 1);
-            if(color) {
+            var tileColor = tile[(flip_y?(7-y):y) * 8 + (flip_x?(7-x):x)];
+            var color = getColor(tileColor, attributes&3, 1);
+            if(tileColor) {
               var pixel = system.color_map[color];
               pixels[index] = pixel[0];
               pixels[index + 1] = pixel[1];
@@ -272,6 +283,8 @@ class NESSystem {
     this.oamaddr = 0;
     this.joy1_next = 0;
 
+    this.mirroring = 0;
+
     this.nmi = false;
     this.bytes_read = 0;
     this.bytes_written = 0;
@@ -384,7 +397,28 @@ class NESSystem {
     return byteToUnsigned(this.read_memory(addr&0xff))+ (byteToUnsigned(this.read_memory((addr+1)&0xff))<<8);
   }
 
+  // Memory mirroring in NES
+  map_memory(addr) {
+    var temp_addr = addr;
+    if(temp_addr >= 0x0800 && temp_addr < 0x1000) {
+      temp_addr -= 0x800;
+      console.log("Map "+Number(addr).toString(16)+" -> "+Number(temp_addr).toString(16));
+    } else if(addr >= 0x1800 && addr < 0x2000) {
+      temp_addr -= 0x800;
+      console.log("Map "+Number(addr).toString(16)+" -> "+Number(temp_addr).toString(16));
+    } else if(temp_addr >= 0x2000 && temp_addr < 0x4000) {
+      if(temp_addr&0xf < 0x7) {
+        temp_addr -= 8;
+        console.log("Map "+Number(addr).toString(16)+" -> "+Number(temp_addr).toString(16));
+      }
+    }
+
+    return temp_addr;
+  }
+
   read_memory(addr) {
+    addr = this.map_memory(addr);
+
     this.bytes_read++;
     if(addr === OAMDATA) {
       return this.oam[this.oamaddr];
@@ -406,6 +440,8 @@ class NESSystem {
     return this.memory_cpu[addr];
   }
   write_memory(addr, byte) {
+    addr = this.map_memory(addr);
+
     if(addr === PPUCTRL) {
       //console.log("$"+Number(this.PC).toString(16)+" Writing byte "+Number(byte).toString(16)+" to PPU control");
     } else if(addr === PPUSCROLL) {
@@ -539,6 +575,7 @@ class NESSystem {
     this.header.prg_size = data[4] * 16*1024;
     this.header.chr_size = data[5] * 8*1024;
     this.pal = !!data[9];
+    this.mirroring = data[6]&1;
     if(this.header.prg_size === 16384) this.PC = 0xc000;
     data.copy(this.memory_cpu, this.PC, 16, 16+this.header.prg_size);
     data.copy(this.memory_ppu, 0, 16+this.header.prg_size, 16+this.header.prg_size+this.header.chr_size);
@@ -2433,7 +2470,7 @@ process.on('SIGINT', function() {
 async function main()
 {
 
-  var binaryData = fs.readFileSync('./test/nestest.nes');
+  var binaryData = fs.readFileSync('./test/arkanoid.nes');
   if(system.parseHeader(binaryData)) {
     var running = true;
     var tempcycles = 0;
