@@ -109,9 +109,11 @@ function draw() {
       const tileTable = nametables[system.memory_cpu[0x2000] & 3];
       const palette_addr = tileTable + 0x3C1;
 
+      const selected_tile_table = system.memory_cpu[0x2000] & (1 << 3) ? 0:0x1000 ;
+
       for (let i = 0; i < tiles; ++i) {
         var sprite = system.memory_ppu[tileTable + i];
-        var tile = getTile(sprite, system.memory_cpu[0x2000] & (1 << 3) ? 0x1000 : 0);
+        var tile = getTile(sprite, selected_tile_table);
         var tilerow = Math.floor(i / 32);
         var tilecol = Math.floor(i % 32);
 
@@ -136,20 +138,27 @@ function draw() {
         var y_pos = system.oam[i];
         var sprite = system.oam[i + 1];
         var x_pos = system.oam[i + 3];
+        var attributes = system.oam[i + 2];
 
-        const spriteTables = [0x0000, 0x1000];
-        const spriteTable = spriteTables[(system.memory_cpu[0x2000] >> 3) & 1];
+        const spriteTables = [0x0000,0x1000];
+        const spriteTable = spriteTables[(system.memory_cpu[0x2000] & (1 << 3))?1:0];
+
+        const flip_y = (attributes&0x80)?1:0;
+        const flip_x = (attributes&0x40)?1:0;
 
         var tile = getTile(sprite, spriteTable);
         for (var y = 0; y < 8; y++) {
           for (var x = 0; x < 8; x++) {
             var index = ((y_pos + y) * 256 + (x_pos) + x) * 4;
             //var pixel = tile[y * 8 + x] * 128;
-            var pixel = system.color_map[getColor(tile[y * 8 + x], colors, 1)];
-            pixels[index] = pixel;
-            pixels[index + 1] = pixel;
-            pixels[index + 2] = pixel;
-            pixels[index + 3] = 255;
+            var color = getColor(tile[(flip_y?(7-y):y) * 8 + (flip_x?(7-x):x)], attributes&3, 1);
+            if(color) {
+              var pixel = system.color_map[color];
+              pixels[index] = pixel[0];
+              pixels[index + 1] = pixel[1];
+              pixels[index + 2] = pixel[2];
+              pixels[index + 3] = 255;
+            }
           }
         }
       }
