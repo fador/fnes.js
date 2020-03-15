@@ -1,6 +1,6 @@
 
 var fs = require('fs');
-const fnes = require('./fnes_system').fnes;
+const fnes = require('./lib/fnes_system').fnes;
 const NS = require('node-sdl2');
 const SDL = NS.require('SDL');
 const SDL_render = NS.require('SDL_render');
