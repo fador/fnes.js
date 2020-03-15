@@ -145,8 +145,10 @@ function load(url, callback) {
 
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4) {
-      InitSystem();
-      main(new Uint8Array(xhr.response));      
+      if(xhr.response !== "") {
+        InitSystem();
+        main(new Uint8Array(xhr.response));      
+      }
     }
   }
   xhr.responseType="arraybuffer";
@@ -157,7 +159,20 @@ function load(url, callback) {
 var system = new fnes();
 load("./arkanoid.nes", main);
 
+function handleFileSelect(evt) {
+    var files = evt.target.files; // FileList object
+    var file = files[0];
+    console.log("Loading file "+file);
+    var reader = new FileReader();
+    reader.readAsArrayBuffer(file);
+    reader.onloadend = function () {  
+      InitSystem();
+      system.running = false;      
+      main(new Uint8Array(reader.result));
+    };
+}
 
+setTimeout(function(){document.getElementById('nesfile').addEventListener('change', handleFileSelect, false);},1000);
 
 
 
