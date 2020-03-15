@@ -18,7 +18,6 @@ function InitSystem() {
 }
 
 var delay = 0;
-var render_ppu_nametable = false;
 var debugMode = false;
 var Joy1data = 0;
 
@@ -27,8 +26,8 @@ document.addEventListener('keyup',handleKeyUp,false);
 function handleKeyDown(e) {
    var code = e.keyCode;
   if(code === 32) { // Space
-    render_ppu_nametable = render_ppu_nametable?false:true
-    console.log("Render Sprite = "+render_ppu_nametable);
+    system.render_ppu_nametable = system.render_ppu_nametable?false:true
+    console.log("Render Sprite = "+system.render_ppu_nametable);
   }
   if(code === 68) { // 'D'
     debugMode = debugMode?false:true
@@ -123,7 +122,7 @@ const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
 const pitch = WIDTH * 4;
 
 function draw() {
- pixels = system.ppu_draw(pixels);
+ system.ppu_draw(pixels);
  imageData();
 }
 
@@ -136,6 +135,7 @@ function imageData() {
 
 async function main(binaryData)
 {
+  setInterval(draw, 10);
   await system.mainloop(binaryData);
 }
 
