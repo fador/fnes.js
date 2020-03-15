@@ -3,7 +3,6 @@ const {map_memory,read_memory,write_memory} = require("./memory_functions");
 const {byteToSigned, byteToUnsigned} = require("./tool_functions");
 const constants = require('./constants');
 
-
 exports.cpu6502_one_op = function() {
   var addr = 0;
   var imm = 0;
