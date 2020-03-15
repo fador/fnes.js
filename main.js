@@ -73,13 +73,13 @@ win.on('keydown', (key) => {
 
   if(key.scancode === 87) { // Plus
     system.extradelay+=10;
-    console.log("Delay "+delay+"ms");
+    console.log("Delay "+system.extradelay+"ms");
   }
 
-  if(key.scancode === 215) { // Minus
+  if(key.scancode === 86) { // Minus
     system.extradelay-=10;
-    if(delay < 0) delay = 0;
-    console.log("Delay "+delay+"ms");
+    if(system.extradelay < 0) system.extradelay = 0;
+    console.log("Delay "+system.extradelay+"ms");
   }
 
   if(key.scancode === 12) { // 'I''
