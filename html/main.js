@@ -1,148 +1,128 @@
 
-var fs = require('fs');
-const fnes = require('./fnes_system').fnes;
-const NS = require('node-sdl2');
-const SDL = NS.require('SDL');
-const SDL_render = NS.require('SDL_render');
-const SDL_pixels = NS.require('SDL_pixels');
 
-// Test app begin
-const App = NS.createAppWithFlags(SDL.SDL_InitFlags.SDL_INIT_EVERYTHING);
+var canvas;
+var ctx;
+var canvasWidth;
+var canvasHeight;
+var id;
 
+const fnes = require("../fnes_system.js").fnes;
+
+function InitSystem() {
+  canvas = document.getElementById('canvas');
+  ctx = canvas.getContext('2d');
+  canvasWidth = canvas.width;
+  canvasHeight = canvas.height;
+  id = ctx.getImageData(0, 0, 1, 1);
+
+}
+
+var delay = 20;
 var render_ppu_nametable = false;
 var debugMode = false;
 var Joy1data = 0;
-var delay = 20;
-const DEBUG_OPS = 1<<0;
-const DEBUG_MEMORY = 1<<1;
 
-// Test window begin
-const Window = NS.window;
-const win = new Window({
-  title: 'fNES.js',
-  w: 256 * 2,
-  h: 256 * 2,
-});
-win.on('close', function() {
-  App.quit()
-});
-win.on('keydown', (key) => {
-  if (key.scancode === 41)  // Escape
-    return App.quit();
-  if(key.scancode === 44) { // Space
+document.addEventListener('keydown',handleKeyDown,false);
+document.addEventListener('keyup',handleKeyUp,false);
+function handleKeyDown(e) {
+   var code = e.keyCode;
+  if(code === 32) { // Space
     render_ppu_nametable = render_ppu_nametable?false:true
     console.log("Render Sprite = "+render_ppu_nametable);
   }
-  if(key.scancode === 7) { // 'D'
+  if(code === 68) { // 'D'
     debugMode = debugMode?false:true
     system.debug = debugMode?DEBUG_OPS:0;
     console.log("Debug mode = "+debugMode);
   }
-  if(key.scancode === 40) { // Start
+  if(code === 13) { // Start
     Joy1data |= (1<<3);
     console.log("Start");
   }
-  if(key.scancode === 79) { // Right
+  if(code === 39) { // Right
     Joy1data |= (1<<7);
     console.log("Right");
   }
-  if(key.scancode === 80) { // Left
+  if(code === 37) { // Left
     Joy1data |= (1<<6);
     console.log("Left");
   }
-  if(key.scancode === 81) { // Down
+  if(code === 40) { // Down
     Joy1data |= (1<<5);
     console.log("Down");
   }
-  if(key.scancode === 82) { // Up
+  if(code === 38) { // Up
     Joy1data |= (1<<4);
     console.log("Up");
   }
-
-  if(key.scancode === 29) { // 'Z'
+  if(code === 90) { // 'Z'  
     Joy1data |= (1<<0);
     console.log("A");
   }
-  if(key.scancode === 27) { // 'X'
+  if(code === 88) { // 'X'
     Joy1data |= (1<<1);
     console.log("B");
   }
-  if(key.scancode === 15) { // 'L'
+  if(code === 79) { // 'L'
     Joy1data |= (1<<2);
     console.log("select");
   }
-
-  if(key.scancode === 87) { // Plus
+  if(code === 107) { // Plus
     delay+=10;
     console.log("Delay "+delay+"ms");
   }
-
-  if(key.scancode === 215) { // Minus
+  
+  if(code === 106) { // Minus
     delay-=10;
     if(delay < 0) delay = 0;
-    console.log("Delay "+delay+"ms");
+    console.log("Delay "+delay+"ms");    
   }
-
-  if(key.scancode === 12) { // 'I''
-                            //Generate an interrupt
-    system.cycles += 2;
-    var addr = system.PC;
-    system.push_stack((addr & 0xff00) >> 8);
-    system.push_stack(addr & 0xff);
-    system.push_stack(system.P);
-    system.P |= (1 << 2); // Interrupt disable
-    system.PC = system.load_abs_addr(0xFFFE);
-    console.log("IRQ $" + Number(system.PC).toString(16) + " From $" + Number(addr).toString(16) + " Stack: " + Number(system.S + 3).toString(16));
-  }
-
   system.Joy1data = Joy1data;
-});
-
-win.on('keyup', (key) => {
-  if(key.scancode === 40) { // Start
+}
+function handleKeyUp(e) {
+  var code = e.keyCode;
+  if(code === 13) { // Start
     Joy1data &= (1<<3)^0xff;
     console.log("Start");
   }
-  if(key.scancode === 79) { // Right
+  if(code === 39) { // Right
     Joy1data &= (1<<7)^0xff;
     console.log("Right");
   }
-  if(key.scancode === 80) { // Left
+  if(code === 37) { // Left
     Joy1data &= (1<<6)^0xff;
     console.log("Left");
   }
-  if(key.scancode === 81) { // Down
+  if(code === 40) { // Down
     Joy1data &= (1<<5)^0xff;
     console.log("Down");
   }
-  if(key.scancode === 82) { // Up
+  if(code === 38) { // Up
     Joy1data &= (1<<4)^0xff;
     console.log("Up");
   }
-  if(key.scancode === 29) { // 'Z'
+  if(code === 90) { // 'Z'  
     Joy1data &= (1<<0)^0xff;
     console.log("A");
   }
-  if(key.scancode === 27) { // 'X'
+  if(code === 88) { // 'X'
     Joy1data &= (1<<1)^0xff;
     console.log("B");
   }
-  if(key.scancode === 15) { // 'L'
+  if(code === 79) { // 'L'
     Joy1data &= (1<<2)^0xff;
     console.log("select");
   }
   system.Joy1data = Joy1data;
-});
+}
 
 
 // Texture
 const WIDTH = 256, HEIGHT = 256;
-const texture = win.render.createTexture(
-  WIDTH, HEIGHT, SDL_pixels.PixelFormat.ABGR8888, SDL_render.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING);
 const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
 const pitch = WIDTH * 4;
 
-var tempTile = Buffer.alloc(8*8);
+var tempTile = new Uint8Array(8*8);
 
 function getTile(index, table) {
   var base_index = table + index*16;
@@ -208,12 +188,10 @@ function draw() {
 
     if (oam) {
       for (var i = 0; i < 256; i += 4) {
-        var y_pos = system.oam[i]+1;
+        var y_pos = system.oam[i];
         var sprite = system.oam[i + 1];
         var x_pos = system.oam[i + 3];
         var attributes = system.oam[i + 2];
-
-        const spriteSize = (system.memory_cpu[0x2000] & (1 << 5))?1:0;
 
         const spriteTables = [0x0000,0x1000];
         const spriteTable = spriteTables[(system.memory_cpu[0x2000] & (1 << 3))?1:0];
@@ -283,29 +261,23 @@ function draw() {
     }
   }
 
-  texture.update(null, pixels, pitch);
-  win.render.copy(texture, null, null);
-  win.render.present();
+ imageData();
 }
 
 
-var system = new fnes();
+function imageData() {  
+  var id = ctx.getImageData(0, 0, 256, 256);
+  var canvas_pixels = id.data;
+  for(var i = 0; i < 256*256*4; i++) canvas_pixels[i] = pixels[i];
+  ctx.putImageData(id, 0, 0);
+}
 
-/*
-process.on('SIGINT', function() {
-  console.log("Caught interrupt signal");
-  system.debug();
-  process.exit(0);
-});
-*/
-
-async function main()
+async function main(binaryData)
 {
-
-  var binaryData = fs.readFileSync('./test/mario.nes');
   if(system.parseHeader(binaryData)) {
     var running = true;
     var tempcycles = 0;
+    setInterval(draw, 10);
     while(running) {
       if(!system.run()) break;
       if(!system.run_ppu()) break;
@@ -324,10 +296,27 @@ async function main()
   } else {
     console.log("ROM failure: header not valid");
   }
-
-
 }
 
-main();
 
-setInterval(draw, 10);
+function load(url, callback) {
+  var xhr = new XMLHttpRequest();
+
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4) {
+      InitSystem();
+      main(new Uint8Array(xhr.response));      
+    }
+  }
+  xhr.responseType="arraybuffer";
+  xhr.open('GET', url, true);
+  xhr.send('');
+}
+
+var system = new fnes();
+load("./arkanoid.nes", main);
+
+
+
+
+
