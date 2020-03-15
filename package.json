@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "node-sdl2": "file:../node-sdl2"
+    "node-sdl2": "git+https://github.com/fador/node-sdl2.git"
   }
 }
