@@ -309,7 +309,7 @@ async function main()
     var tempcycles = 0;
     startTime = new Date();
     while(running) {
-      if(!system.run()) break;
+      if(!system.cpu6502_one_op()) break;
       if(!system.run_ppu()) break;
       if(system.cycles-tempcycles > 100000) {
         tempcycles = system.cycles;
