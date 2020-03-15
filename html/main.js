@@ -17,7 +17,7 @@ function InitSystem() {
 
 }
 
-var delay = 20;
+var delay = 0;
 var render_ppu_nametable = false;
 var debugMode = false;
 var Joy1data = 0;
@@ -274,16 +274,22 @@ function imageData() {
 
 async function main(binaryData)
 {
+   var startTime;
   if(system.parseHeader(binaryData)) {
     var running = true;
     var tempcycles = 0;
     setInterval(draw, 10);
+    startTime = new Date();
     while(running) {
       if(!system.run()) break;
       if(!system.run_ppu()) break;
       if(system.cycles-tempcycles > 100000) {
         tempcycles = system.cycles;
-        await new Promise(resolve => setTimeout(resolve, delay));
+        temp_endtime = new Date();
+        var difftime = (temp_endtime-startTime)-(0.1/1.79)*1000;
+        if(difftime > 0) difftime = 0;
+        await new Promise(resolve => setTimeout(resolve, (-difftime)+delay));
+        startTime = temp_endtime;
         if(system.cycles < 200000) {
           console.log("Palette:" +Number(getColor(0, 0, 0)).toString(16));
           console.log("Palette:" +Number(getColor(1, 0, 0)).toString(16));
