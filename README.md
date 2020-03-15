@@ -28,13 +28,15 @@ $ node main.js
 ```
 
 #### Node.js / node-sdl2
+
+Customize the .nes file loading at the end of `html/main.js`
+
 ```sh
 $ cd fnes.js/html
 $ browserify main.js > system_browserify.js
 ```
-Customize the .nes file loading in `index.html`
 
-Upload `index.html` and `system_browserify.js` to your site
+Upload `index.html`, `system_browserify.js` and the `.nes` to your site
 
 License
 ----
