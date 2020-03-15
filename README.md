@@ -27,7 +27,7 @@ $ npm install
 $ node main.js
 ```
 
-#### Node.js / node-sdl2
+#### Browser / HTML5 canvas
 
 Customize the .nes file loading at the end of `html/main.js`
 
