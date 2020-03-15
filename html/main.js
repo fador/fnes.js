@@ -6,7 +6,7 @@ var canvasWidth;
 var canvasHeight;
 var id;
 
-const fnes = require("../fnes_system.js").fnes;
+const fnes = require("../lib/fnes_system.js").fnes;
 
 function InitSystem() {
   canvas = document.getElementById('canvas');
