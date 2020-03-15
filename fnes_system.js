@@ -1,3 +1,8 @@
+const {get_registers_string,print_op_info} = require("./debug_functions");
+const {map_memory,read_memory,write_memory} = require("./memory_functions");
+const {byteToSigned, byteToUnsigned} = require("./tool_functions");
+
+const constants = require('./constants');
 
 class NESHeader {
 
@@ -9,27 +14,6 @@ class NESHeader {
   }
 }
 
-function byteToSigned(val) {
-  if(val&0x80) val = -((~val&0xff)-1);
-  return val;
-}
-
-function byteToUnsigned(val) {
-  return val&0xff;
-}
-
-const DEBUG_OPS = 1<<0;
-const DEBUG_MEMORY = 1<<1;
-
-const PPUCTRL = 0x2000;
-const PPUSTATUS = 0x2002;
-const OAMADDR = 0x2003;
-const OAMDATA = 0x2004;
-const PPUSCROLL = 0x2005;
-const PPUADDR = 0x2006;
-const PPUDATA = 0x2007;
-const PPU_CYCLES_PER_LINE = 341;
-const PPU_CYCLES_PER_FRAME = 89342;
 
 class NESSystem {
 
@@ -56,7 +40,7 @@ class NESSystem {
     this.nmi = false;
     this.bytes_read = 0;
     this.bytes_written = 0;
-    this.debug = 0;//DEBUG_OPS;
+    this.debug = 0;//constants.DEBUG_OPS;
     this.cycles = 7;
     this.ops = 0;
     this.PC = 0x8000;
@@ -77,6 +61,16 @@ class NESSystem {
     this.color_map = new Array(0x3f);
 
     this.init_palette();
+
+    // Map external functions
+    // Debug
+    NESSystem.prototype.get_registers_string=get_registers_string.bind(this);
+    NESSystem.prototype.print_op_info=print_op_info.bind(this);
+
+    //Memory
+    NESSystem.prototype.map_memory=map_memory.bind(this);
+    NESSystem.prototype.read_memory=read_memory.bind(this);
+    NESSystem.prototype.write_memory=write_memory.bind(this);
   }
 
   init_palette() {
@@ -165,98 +159,6 @@ class NESSystem {
     return byteToUnsigned(this.read_memory(addr&0xff))+ (byteToUnsigned(this.read_memory((addr+1)&0xff))<<8);
   }
 
-  // Memory mirroring in NES
-  map_memory(addr) {
-    var temp_addr = addr;
-    if(temp_addr >= 0x0800 && temp_addr < 0x1000) {
-      temp_addr -= 0x800;
-      console.log("Map "+Number(addr).toString(16)+" -> "+Number(temp_addr).toString(16));
-    } else if(addr >= 0x1800 && addr < 0x2000) {
-      temp_addr -= 0x800;
-      console.log("Map "+Number(addr).toString(16)+" -> "+Number(temp_addr).toString(16));
-    } else if(temp_addr >= 0x2000 && temp_addr < 0x4000) {
-      if(temp_addr&0xf < 0x7) {
-        temp_addr -= 8;
-        console.log("Map "+Number(addr).toString(16)+" -> "+Number(temp_addr).toString(16));
-      }
-    }
-
-    return temp_addr;
-  }
-
-  read_memory(addr) {
-    addr = this.map_memory(addr);
-
-    this.bytes_read++;
-    if(addr === OAMDATA) {
-      return this.oam[this.oamaddr];
-    } else if(addr === PPUDATA) {
-      return this.memory_ppu[this.vram_addr++];
-    } else if(addr === PPUSTATUS) {
-      //console.log("PPUSTATUS Read")
-      var oldStatus = this.memory_cpu[PPUSTATUS];
-      this.memory_cpu[PPUSTATUS] &= 0x7f;
-      return oldStatus;
-    } else if(addr === 0x4016) {
-      //console.log("$4016 Read");
-      var joyState = this.joy1_next;
-      this.joy1_next++;
-      if(this.joy1_next===8) this.joy1_next=0;
-      return 0x40|((byteToUnsigned(this.Joy1data)>>joyState)&1);
-    }
-
-    return this.memory_cpu[addr];
-  }
-  write_memory(addr, byte) {
-    addr = this.map_memory(addr);
-
-    if(addr === PPUCTRL) {
-      //console.log("$"+Number(this.PC).toString(16)+" Writing byte "+Number(byte).toString(16)+" to PPU control");
-    } else if(addr === PPUSCROLL) {
-      this.ppu_scroll_toggle = this.ppu_scroll_toggle?0:1;
-      if(this.ppu_scroll_toggle) this.ppu_scroll_x = byte;
-      else this.ppu_scroll_y = byte;
-
-      if(!this.ppu_scroll_toggle) {
-        //console.log("PPUSCROLL: "+this.ppu_scroll_x+","+this.ppu_scroll_y);
-      }
-    } else if(addr === PPUADDR) {
-      this.ppu_addr_toggle=this.ppu_addr_toggle?0:1;
-      this.vram_addr = (this.vram_addr&(this.ppu_addr_toggle?0x00ff:0xff00))|(byteToUnsigned(byte)<<(this.ppu_addr_toggle?8:0));
-      if(!this.ppu_addr_toggle) {
-        //console.log("PPUADDR: 0x"+Number(this.vram_addr).toString(16));
-      }
-    } else if(addr === PPUDATA) {
-      const increment = (this.memory_cpu[0x2000]&0x4)?32:1;
-      //console.log("Writing $"+Number(byte).toString(16)+" to $"+Number(this.vram_addr).toString(16));
-      this.memory_ppu[this.vram_addr+=increment] = byte;
-    } else if(addr === OAMADDR) {
-      //console.log("OAM addr");
-      this.oamaddr = byte;
-    } else if(addr === OAMDATA) {
-      console.log("OAM data");
-      this.oam[(this.oamaddr++)&0xff] = byte;
-    } else if(addr >= 0x2001 && addr <= 0x2007) {
-      //console.log("Writing byte "+Number(byte).toString(16)+" to "+Number(addr).toString(16));
-    } else if(addr === 0x4010) {
-      console.log("APU DMC to "+Number(byte).toString(16));
-    } else if(addr === 0x4017) {
-      console.log("APU Frame Counter to "+Number(byte).toString(16));
-    } else if(addr === 0x4014) { // DMA
-      this.cycles+=513;
-      //this.memory_cpu.copy(this.oam,0,0x100*byte, 0x100*byte+255);
-      this.oam = this.memory_cpu.slice(0x100*byte, 0x100*byte+255);
-      //console.log("DMA Write: "+Number(byte).toString(16));
-      //console.log(this.oam);
-    } else if(addr === 0x4016) {
-      if(byte === 0)
-        this.joy1_next = 0;
-    }
-
-    this.bytes_written++;
-    this.memory_cpu[addr] = byte;
-    return true;
-  }
 
   get_flag_zero() { return !!(this.P[0] & 0x2); }
   get_flag_carry() { return !!(this.P[0] & 0x1); }
@@ -336,7 +238,8 @@ class NESSystem {
   */
   parseHeader(data) {
 
-    if(Buffer.compare(data.slice(0,4), Buffer.from([0x4E, 0x45, 0x53, 0x1A])))
+    // Check that the header is "NES\n"
+    if(data[0] !== 0x4E || data[1] !== 0x45 || data[2] !== 0x53 || data[3] !== 0x1A)
     {
       console.log(data.slice(0,4));
       return false;
@@ -361,21 +264,25 @@ class NESSystem {
       //this.nmi = false;
       if(this.ppu_scanline===240 && this.cycles_this_line === 0) {
         //console.log("VSync "+this.cycles);
-        this.memory_cpu[PPUSTATUS] |= 0x80;
-        if(this.memory_cpu[PPUCTRL]&0x80) {
-          this.memory_cpu[PPUCTRL] &= 0x7f;
+        this.memory_cpu[constants.PPUSTATUS] |= 0x80;
+        if(this.memory_cpu[constants.PPUCTRL]&0x80) {
+          this.memory_cpu[constants.PPUCTRL] &= 0x7f;
           this.nmi = true;
         }
       }
       if(this.ppu_scanline===260 && this.cycles_this_line === 0) {
-        this.memory_cpu[PPUSTATUS] &= 0x7f;
+        this.memory_cpu[constants.PPUSTATUS] &= 0x7f;
         //console.log("VSync over "+this.cycles );
       }
-
+      if(this.ppu_scanline===1) {
+        this.memory_cpu[constants.PPUSTATUS] |= (1<<4);
+      } else {
+        this.memory_cpu[constants.PPUSTATUS] &= (1<<4)^0xff;
+      }
       this.cycles_ppu++;
       this.cycles_ppu_this_frame++;
       this.cycles_this_line++;
-      if(this.cycles_this_line === PPU_CYCLES_PER_LINE) {
+      if(this.cycles_this_line === constants.PPU_CYCLES_PER_LINE) {
         this.cycles_this_line = 0;
         this.ppu_scanline++;
         if(this.ppu_scanline === 261) {
@@ -409,7 +316,7 @@ class NESSystem {
     var offset = 0;
     var carry = 0;
 
-    if(this.debug & DEBUG_OPS) this.temp_regstate = this.get_registers_string();
+    if(this.debug & constants.DEBUG_OPS) this.temp_regstate = this.get_registers_string();
     //console.log(this.PC.toString(16)+": "+this.memory_cpu[this.PC].toString(16));
     //if(this.PC == 0x8057) return 0;
     //console.log("A:" + Number(this.A[0]).toString(16)+" X:" + Number(this.X[0]).toString(16)+" Y:" + Number(this.Y[0]).toString(16)+" PC " + this.PC.toString(16));
@@ -2085,29 +1992,6 @@ class NESSystem {
     return 1;
   }
 
-  get_registers_string() {
-    var registers = "A:"+Number(this.A[0]).toString(16).padStart(2,"0").toUpperCase();
-    registers += " X:"+Number(this.X[0]).toString(16).padStart(2,"0").toUpperCase();
-    registers += " Y:"+Number(this.Y[0]).toString(16).padStart(2,"0").toUpperCase();
-    registers += " P:"+Number(this.P[0]).toString(16).padStart(2,"0").toUpperCase();
-    registers += " SP:"+Number(this.S).toString(16).padStart(2,"0").toUpperCase();
-    registers += " PPU:   ,   ";
-    registers += " CYC:"+this.cycles;
-    return registers;
-  }
-
-  print_op_info(offset, string) {
-
-    if(this.debug & DEBUG_OPS) {
-      var addr = Number(this.PC-offset).toString(16).padStart(4, "0").toUpperCase()+" ";
-      var data = "";
-      for(var i = 0; i < offset+1; i++) {
-        data += " "+Number(this.memory_cpu[this.PC-offset+i]).toString(16).toUpperCase().padStart(2,"0");
-      }
-
-      console.log(addr+ data.padEnd(11) + string.padEnd(32)+this.temp_regstate);
-    }
-  }
 
   set_processor_status(val) {
     this.P[0] = (val|0x20)&0xef;
