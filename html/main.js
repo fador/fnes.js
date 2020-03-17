@@ -17,7 +17,6 @@ function InitSystem() {
 
 }
 
-var delay = 0;
 var debugMode = false;
 var Joy1data = 0;
 
@@ -67,14 +66,14 @@ function handleKeyDown(e) {
     console.log("select");
   }
   if(code === 107) { // Plus
-    delay+=10;
-    console.log("Delay "+delay+"ms");
+    system.extradelay+=10;
+    console.log("Delay "+system.extradelay+"ms");
   }
   
   if(code === 106) { // Minus
-    delay-=10;
-    if(delay < 0) delay = 0;
-    console.log("Delay "+delay+"ms");    
+    system.extradelay-=10;
+    if(system.extradelay < 0) system.extradelay = 0;
+    console.log("Delay "+system.extradelay+"ms");    
   }
   system.Joy1data = Joy1data;
 }
