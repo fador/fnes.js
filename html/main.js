@@ -16,7 +16,7 @@ function InitSystem() {
   id = ctx.getImageData(0, 0, 1, 1);
 
 }
-
+const DEBUG_OPS = 1<<0;
 var debugMode = false;
 var Joy1data = 0;
 
