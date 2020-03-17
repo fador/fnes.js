@@ -141,9 +141,33 @@ const texture = win.render.createTexture(
 var pixels = new Uint8Array(WIDTH * HEIGHT * 4);
 const pitch = WIDTH * 4;
 
+// Audio.
+const SDL_audio = NS.require('SDL_audio');
+const audio = NS.audio.create();
+const options = {
+  freq: 22000,
+  channels: 1,
+  format: SDL_audio.SDL_AudioFormatFlag.AUDIO_F32,
+  samples: 480,
+};
+
+/// Play sine wave.
+const tone = 440  // Hz
+let counter = 0;
+var audioInit = false;
+/*
+audio.openAudioDevice(options, (arrayBuffer) => {
+  if(!audioInit) return;
+  const array = new Float32Array(arrayBuffer)
+  const len = array.length;
+  const sampleRate = audio.spec.freq;
+  system.apu_audio_sample(sampleRate,array);
+});
+ */
 function draw()
 {
-  pixels=system.ppu_draw(pixels);
+  audioInit=true;
+  system.ppu_draw(pixels);
   texture.update(null, pixels, pitch);
   win.render.copy(texture, null, null);
   win.render.present();
