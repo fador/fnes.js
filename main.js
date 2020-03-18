@@ -30,56 +30,56 @@ win.on('keydown', (key) => {
     return App.quit();
   if(key.scancode === 44) { // Space
     system.render_ppu_nametable = system.render_ppu_nametable?false:true
-    console.log("Render Sprite = "+system.render_ppu_nametable);
+    //console.log("Render Sprite = "+system.render_ppu_nametable);
   }
   if(key.scancode === 7) { // 'D'
     debugMode = debugMode?false:true
     system.debug = debugMode?DEBUG_OPS:0;
-    console.log("Debug mode = "+debugMode);
+    //console.log("Debug mode = "+debugMode);
   }
   if(key.scancode === 40) { // Start
     Joy1data |= (1<<3);
-    console.log("Start");
+    //console.log("Start");
   }
   if(key.scancode === 79) { // Right
     Joy1data |= (1<<7);
-    console.log("Right");
+    //console.log("Right");
   }
   if(key.scancode === 80) { // Left
     Joy1data |= (1<<6);
-    console.log("Left");
+    //console.log("Left");
   }
   if(key.scancode === 81) { // Down
     Joy1data |= (1<<5);
-    console.log("Down");
+    //console.log("Down");
   }
   if(key.scancode === 82) { // Up
     Joy1data |= (1<<4);
-    console.log("Up");
+    //console.log("Up");
   }
 
   if(key.scancode === 29) { // 'Z'
     Joy1data |= (1<<0);
-    console.log("A");
+    //console.log("A");
   }
   if(key.scancode === 27) { // 'X'
     Joy1data |= (1<<1);
-    console.log("B");
+    //console.log("B");
   }
   if(key.scancode === 15) { // 'L'
     Joy1data |= (1<<2);
-    console.log("select");
+    //console.log("select");
   }
 
   if(key.scancode === 87) { // Plus
     system.extradelay+=10;
-    console.log("Delay "+system.extradelay+"ms");
+    //console.log("Delay "+system.extradelay+"ms");
   }
 
   if(key.scancode === 86) { // Minus
     system.extradelay-=10;
     if(system.extradelay < 0) system.extradelay = 0;
-    console.log("Delay "+system.extradelay+"ms");
+    //console.log("Delay "+system.extradelay+"ms");
   }
 
   if(key.scancode === 12) { // 'I''
@@ -100,35 +100,35 @@ win.on('keydown', (key) => {
 win.on('keyup', (key) => {
   if(key.scancode === 40) { // Start
     Joy1data &= (1<<3)^0xff;
-    console.log("Start");
+    //console.log("Start");
   }
   if(key.scancode === 79) { // Right
     Joy1data &= (1<<7)^0xff;
-    console.log("Right");
+    //console.log("Right");
   }
   if(key.scancode === 80) { // Left
     Joy1data &= (1<<6)^0xff;
-    console.log("Left");
+    //console.log("Left");
   }
   if(key.scancode === 81) { // Down
     Joy1data &= (1<<5)^0xff;
-    console.log("Down");
+    //console.log("Down");
   }
   if(key.scancode === 82) { // Up
     Joy1data &= (1<<4)^0xff;
-    console.log("Up");
+    //console.log("Up");
   }
   if(key.scancode === 29) { // 'Z'
     Joy1data &= (1<<0)^0xff;
-    console.log("A");
+    //console.log("A");
   }
   if(key.scancode === 27) { // 'X'
     Joy1data &= (1<<1)^0xff;
-    console.log("B");
+    //console.log("B");
   }
   if(key.scancode === 15) { // 'L'
     Joy1data &= (1<<2)^0xff;
-    console.log("select");
+    //console.log("select");
   }
   system.Joy1data = Joy1data;
 });
@@ -158,12 +158,12 @@ var audioInit = false;
 /*
 audio.openAudioDevice(options, (arrayBuffer) => {
   if(!audioInit) return;
-  const array = new Float32Array(arrayBuffer)
+  const array = new Float32Array(arrayBuffer);
   const len = array.length;
   const sampleRate = audio.spec.freq;
   system.apu_audio_sample(sampleRate,array);
 });
- */
+*/
 function draw()
 {
   audioInit=true;

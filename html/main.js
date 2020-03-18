@@ -120,7 +120,27 @@ const WIDTH = 256, HEIGHT = 256;
 const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
 const pitch = WIDTH * 4;
 
+var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// Create an empty two second stereo buffer at the
+// sample rate of the AudioContext
+var frameCount = 480;
+var myArrayBuffer = audioCtx.createBuffer(1, frameCount, audioCtx.sampleRate);
+
 function draw() {
+  
+  var array = myArrayBuffer.getChannelData(0);
+  system.apu_audio_sample(audioCtx.sampleRate,array);
+  // Get an AudioBufferSourceNode.
+  // This is the AudioNode to use when we want to play an AudioBuffer
+  var source = audioCtx.createBufferSource();
+  // set the buffer in the AudioBufferSourceNode
+  source.buffer = myArrayBuffer;
+  // connect the AudioBufferSourceNode to the
+  // destination so we can hear the sound
+  source.connect(audioCtx.destination);
+  // start the source playing
+  source.start();
  system.ppu_draw(pixels);
  imageData();
 }
