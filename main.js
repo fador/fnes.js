@@ -84,14 +84,7 @@ win.on('keydown', (key) => {
 
   if(key.scancode === 12) { // 'I''
                             //Generate an interrupt
-    system.cycles += 2;
-    var addr = system.PC;
-    system.push_stack((addr & 0xff00) >> 8);
-    system.push_stack(addr & 0xff);
-    system.push_stack(system.P);
-    system.P |= (1 << 2); // Interrupt disable
-    system.PC = system.load_abs_addr(0xFFFE);
-    console.log("IRQ $" + Number(system.PC).toString(16) + " From $" + Number(addr).toString(16) + " Stack: " + Number(system.S + 3).toString(16));
+    system.nmi = true;
   }
 
   system.Joy1data = Joy1data;

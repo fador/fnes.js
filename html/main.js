@@ -75,6 +75,11 @@ function handleKeyDown(e) {
     if(system.extradelay < 0) system.extradelay = 0;
     console.log("Delay "+system.extradelay+"ms");    
   }
+  
+  // Manual NMI
+  if(code === 74) { // 'I'
+    system.nmi=true;    
+  }
   system.Joy1data = Joy1data;
 }
 function handleKeyUp(e) {
@@ -124,11 +129,11 @@ var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 // Create an empty two second stereo buffer at the
 // sample rate of the AudioContext
-var frameCount = 480;
+var frameCount = audioCtx.sampleRate/50;
 var myArrayBuffer = audioCtx.createBuffer(1, frameCount, audioCtx.sampleRate);
 
 function draw() {
-  
+  /*
   var array = myArrayBuffer.getChannelData(0);
   system.apu_audio_sample(audioCtx.sampleRate,array);
   // Get an AudioBufferSourceNode.
@@ -141,8 +146,9 @@ function draw() {
   source.connect(audioCtx.destination);
   // start the source playing
   source.start();
- system.ppu_draw(pixels);
- imageData();
+  */
+  system.ppu_draw(pixels);
+  imageData();
 }
 
 function imageData() {  
@@ -154,7 +160,7 @@ function imageData() {
 
 async function main(binaryData)
 {
-  setInterval(draw, 10);
+  setInterval(draw, 20);
   await system.mainloop(binaryData);
 }
 
